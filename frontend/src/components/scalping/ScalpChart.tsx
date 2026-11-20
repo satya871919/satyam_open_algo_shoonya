@@ -33,6 +33,7 @@ import { type Chart, compactVolume, createChart, type SeriesApi } from 'openalgo
 import { useEffect, useRef, useState } from 'react'
 import { scalpingApi } from '@/api/scalping'
 import { useMarketData } from '@/hooks/useMarketData'
+import { chartBrandingOptions } from '@/lib/branding'
 import { priceDecimals } from '@/lib/scalpingPrice'
 import { buildChartTheme, quietVolumeStyle } from '@/lib/trading/chartTheme'
 import { buildChartLegend, legendHtml } from '@/lib/trading/legend'
@@ -133,6 +134,7 @@ export function ScalpChart({
 
     const chart = createChart(container, {
       theme: buildChartTheme(mode, appMode),
+      branding: chartBrandingOptions(mode, appMode),
       // See the module docstring: the arrow keys belong to order entry.
       shortcuts: false,
       // The hover zoom rail is chrome a 340px chart has no room for.
@@ -359,6 +361,7 @@ export function ScalpChart({
     const vol = volRef.current
     if (!chart || !vol) return
     chart.setTheme(buildChartTheme(mode, appMode))
+    chart.setBranding(chartBrandingOptions(mode, appMode))
     const arr = sortedRef.current
     vol.setData(arr.map((k, i) => volumeBar(k, arr[i - 1]?.close)))
   }, [mode, appMode])

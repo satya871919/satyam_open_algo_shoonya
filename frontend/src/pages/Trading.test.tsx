@@ -41,6 +41,7 @@ const fake = vi.hoisted(() => ({
   lock: null as null | ((pending: boolean) => void),
   changed: vi.fn(),
   markSaved: vi.fn(),
+  syncOptions: vi.fn(),
   missingPane: '',
 }))
 vi.mock('@/stores/authStore', () => {
@@ -65,7 +66,12 @@ vi.mock('@/hooks/useProfileMenuItems', async () => {
     ],
   }
 })
-vi.mock('openalgo-charts', () => ({ createLinkGroup: () => ({ setOptions() {}, destroy() {} }) }))
+vi.mock('openalgo-charts', () => ({
+  createLinkGroup: () => ({
+    setOptions: (options: unknown) => fake.syncOptions(options),
+    destroy() {},
+  }),
+}))
 vi.mock('@/hooks/useChartWorkspaceCatalog', () => ({
   useChartWorkspaceCatalog: () => ({ catalog: null, loading: false, pending: false, error: null }),
 }))
@@ -276,6 +282,61 @@ describe('chart grid dividers', () => {
     render(<Trading />)
     await waitFor(() => expect(screen.getByRole('button', { name: 'Replay p0' })).toBeVisible())
     expect(screen.queryByRole('separator')).toBeNull()
+  })
+})
+
+describe('chart sync defaults', () => {
+  it('keeps charts independently zoomed after upgrading old default sync settings', async () => {
+    localStorage.setItem('oa-trading-layout', 'cols2')
+    localStorage.setItem(
+      'oa-trading-sync',
+      JSON.stringify({ crosshair: true, viewport: true, symbol: false, interval: false })
+    )
+    render(<Trading />)
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Replay p1' })).toBeVisible())
+
+    await waitFor(() => {
+      expect(fake.syncOptions).toHaveBeenLastCalledWith({
+        crosshair: true,
+        viewport: false,
+        symbol: false,
+        interval: false,
+      })
+    })
+    await waitFor(() => {
+      expect(JSON.parse(localStorage.getItem('oa-trading-sync-v2')!).viewport).toBe(false)
+    })
+  })
+
+  it('does not let a saved workspace turn viewport sync back on', async () => {
+    localStorage.setItem(
+      'oa-trading-sync-v2',
+      JSON.stringify({ crosshair: true, viewport: false, symbol: false, interval: false })
+    )
+    render(<Trading />)
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Replay p0' })).toBeVisible())
+
+    const linkGroup = { setOptions: vi.fn() }
+    const grid = {
+      payload: {
+        activePaneId: 'p0',
+        panes: [{ id: 'p0' }],
+        sync: { crosshair: true, viewport: true, symbol: false, interval: false },
+      },
+      linkGroup,
+      terminals: new Map([['p0', fake.terminal]]),
+      symbols: new Map(),
+      objects: new Map(),
+    } as unknown as PreparedChartGrid
+
+    act(() => fake.publish?.(grid))
+
+    expect(linkGroup.setOptions).toHaveBeenLastCalledWith({
+      crosshair: true,
+      viewport: false,
+      symbol: false,
+      interval: false,
+    })
   })
 })
 

@@ -34,8 +34,10 @@ says so and links to `/apikey`.
 | Right rail | The four controls that open those panels |
 | Bottom dock | Orders, positions, trades and GTT across every symbol |
 
-The chart grid takes whatever the rails and panels leave. Only the right panel
-and the dock can be resized; the panes follow the layout preset you pick.
+The chart grid takes whatever the rails and panels leave. Drag the visible
+divider between charts to resize the charts beside it; double-click a divider
+to restore the layout preset's proportions. Pan and zoom are independent by
+default. Open **Chart sync** and enable **Time range** to link them.
 
 One toolbar serves the whole grid. Click a chart, move keyboard focus to its
 chart region, or use the **Chart 1 / Chart 2** selector to choose the chart that
@@ -84,8 +86,9 @@ displayed live data. Exporting does not change the saved workspace.
 
 In a multi-chart layout, open **Chart sync** and enable **Interval** to follow
 interval changes across panes. This switch is independent of symbol, time-range
-and crosshair sync. A pane whose feed or session-profile chart cannot use the
-selected interval keeps its current interval and explains why.
+and crosshair sync. The time range is independent by default; enable it to mirror
+pan and zoom across charts. A pane whose feed or session-profile chart cannot use
+the selected interval keeps its current interval and explains why.
 
 In **Chart settings > Appearance**, **Snap to candle center** keeps the vertical
 crosshair on the nearest candle. The horizontal price cursor still follows the
@@ -414,7 +417,8 @@ group menus to reach the complete catalogue.
 
 Two controls change how the tools behave:
 
-- **Magnet** snaps an anchor to the nearest open, high, low or close.
+- **Magnet** is off by default, so drawing anchors land where you click. Turn it
+  on to snap an anchor to the nearest open, high, low or close.
 - **Keep tool selected** (the padlock) keeps the tool after you finish a
   drawing. Without it the tool is released after one shape and the rail returns
   to the cursor, so three trend lines mean three trips to the rail. Both
@@ -736,7 +740,8 @@ and per pane: the symbol, interval, chart type, product, indicators, comparisons
 magnet, keep tool selected, grid, volume and watermark settings.
 
 Watchlists are stored on the server, so they follow you between devices.
-Everything else above is stored in the browser.
+Everything else above is stored in the browser. The **Time range** sync choice
+is browser-wide, so restoring an older workspace does not turn it back on.
 
 ## Related
 

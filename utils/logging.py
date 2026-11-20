@@ -534,6 +534,12 @@ def setup_logging():
     logging.getLogger("requests").setLevel(logging.WARNING)
     logging.getLogger("httpx").setLevel(logging.WARNING)
     logging.getLogger("httpcore").setLevel(logging.WARNING)
+    # Suppress Shoonya API data and quote response body logs
+    logging.getLogger("data").setLevel(logging.WARNING)
+    logging.getLogger("broker.shoonya.api.data").setLevel(logging.WARNING)
+    logging.getLogger("shoonya_adapter").setLevel(logging.WARNING)
+    logging.getLogger("shoonya_websocket").setLevel(logging.WARNING)
+
 
     # Add Werkzeug error filter to suppress known development server errors
     werkzeug_error_filter = WerkzeugErrorFilter()

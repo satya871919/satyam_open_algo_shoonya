@@ -44,6 +44,7 @@ describe('grid dividers', () => {
     // 8px padding, a 400px chart, then the 8px gap the divider fills.
     expect(column.style.left).toBe('408px')
     expect(column.style.width).toBe('8px')
+    expect(column).toHaveAttribute('title', 'Drag to resize; double-click to reset')
     const row = view.getByRole('separator', { name: 'Resize chart rows' })
     expect(row.style.top).toBe('308px')
     expect(row.style.height).toBe('8px')

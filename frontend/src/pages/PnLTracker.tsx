@@ -24,6 +24,7 @@ import {
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { chartBrandingOptions } from '@/lib/branding'
 import { buildChartTheme } from '@/lib/trading/chartTheme'
 import { makeFormatCurrency } from '@/lib/utils'
 import { useAuthStore } from '@/stores/authStore'
@@ -163,6 +164,7 @@ export default function PnLTracker() {
     const { mode: m, appMode: a } = useThemeStore.getState()
     const look = chartLook(m, a, lastPnlRef.current)
     chart.setTheme(look.theme)
+    chart.setBranding(chartBrandingOptions(m, a))
     pnlSeries.applyOptions(look.pnl)
   }, [])
 
@@ -177,6 +179,7 @@ export default function PnLTracker() {
     const look = chartLook(mode, appMode, lastPnlRef.current)
     const chart = createChart(container, {
       theme: look.theme,
+      branding: chartBrandingOptions(mode, appMode),
       ariaLabel: 'Intraday PnL curve and drawdown',
       // A read-only report: the keyboard belongs to the page, and the hover
       // zoom rail is chrome this chart does not need.

@@ -22,8 +22,8 @@
  * core tier draws no legend of its own.
  */
 
-import { type Chart, createChart, type SeriesApi } from 'openalgo-charts'
 import { Check, ChevronsUpDown } from 'lucide-react'
+import { type Chart, createChart, type SeriesApi } from 'openalgo-charts'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { oiProfileApi } from '@/api/oi-profile'
 import {
@@ -50,6 +50,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { useSupportedExchanges } from '@/hooks/useSupportedExchanges'
+import { chartBrandingOptions } from '@/lib/branding'
 import { serverSentence } from '@/lib/serverSentence'
 import { buildChartTheme, isLightTheme, resolveCssColor } from '@/lib/trading/chartTheme'
 import { type AppMode, type ThemeMode, useThemeStore } from '@/stores/themeStore'
@@ -231,10 +232,12 @@ export default function StraddleChart() {
     const host = chartContainerRef.current
     if (!host) return
 
+    const themeState = useThemeStore.getState()
     const initial = lookRef.current
     const shown = visibleRef.current
     const chart = createChart(host, {
       theme: chartThemeFor(initial, shown),
+      branding: chartBrandingOptions(themeState.mode, themeState.appMode),
       // A read-only analytic chart: the keyboard belongs to the page's controls.
       shortcuts: false,
       ariaLabel: 'Straddle chart',
@@ -381,10 +384,11 @@ export default function StraddleChart() {
     const chart = chartRef.current
     if (!chart) return
     chart.setTheme(chartThemeFor(look, { showStraddle, showSpot, showSynthetic }))
+    chart.setBranding(chartBrandingOptions(mode, appMode))
     straddleSeriesRef.current?.applyOptions({ color: look.straddle, visible: showStraddle })
     spotSeriesRef.current?.applyOptions({ color: look.spot, visible: showSpot })
     syntheticSeriesRef.current?.applyOptions({ color: look.synthetic, visible: showSynthetic })
-  }, [look, showStraddle, showSpot, showSynthetic])
+  }, [mode, appMode, look, showStraddle, showSpot, showSynthetic])
 
   // ── Data fetching ─────────────────────────────────────────────
 

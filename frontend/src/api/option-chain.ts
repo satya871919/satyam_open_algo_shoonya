@@ -21,7 +21,7 @@ export const optionChainApi = {
       underlying,
       exchange,
       expiry_date: expiryDate,
-      strike_count: strikeCount ?? 20,
+      strike_count: strikeCount ?? 5,
       ...(options.withGreeks ? { with_greeks: true } : {}),
     })
     return response.data

@@ -32,7 +32,7 @@ import { showToast } from '@/utils/toast'
 // Default number of strikes shown above and below ATM when the page first loads
 // or the range is reset. The OI endpoint fetches 23 strikes each side, so the
 // quick selectors are capped at what is actually available.
-const DEFAULT_AROUND = 10
+const DEFAULT_AROUND = 5
 const AROUND_OPTIONS = [5, 10, 15, 20] as const
 const AUTO_REFRESH_MS = 60_000
 

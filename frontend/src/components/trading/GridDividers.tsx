@@ -130,6 +130,7 @@ export function GridDividers({ cells, weights, onChange, onCommit, onReset }: Pr
               tabIndex={0}
               aria-orientation={vertical ? 'vertical' : 'horizontal'}
               aria-label={vertical ? 'Resize chart columns' : 'Resize chart rows'}
+              title="Drag to resize; double-click to reset"
               aria-valuemin={0}
               aria-valuemax={100}
               aria-valuenow={Math.round(share)}
@@ -192,7 +193,7 @@ export function GridDividers({ cells, weights, onChange, onCommit, onReset }: Pr
               <span
                 aria-hidden="true"
                 className={cn(
-                  'rounded-full bg-primary/0 transition-colors group-hover:bg-primary/60 group-focus-visible:bg-primary',
+                  'rounded-full bg-muted-foreground/35 transition-colors group-hover:bg-primary/60 group-focus-visible:bg-primary',
                   vertical ? 'h-10 max-h-full w-[3px]' : 'h-[3px] w-10 max-w-full'
                 )}
               />

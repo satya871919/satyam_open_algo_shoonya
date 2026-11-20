@@ -225,6 +225,103 @@ export class MarketDataManager {
     }
   }
 
+  /**
+   * Subscribe to market data for multiple symbols in a single batch
+   * Returns an unsubscribe function that unsubscribes all symbols at once
+   */
+  subscribeBatch(
+    symbols: Array<{ symbol: string; exchange: string }>,
+    mode: SubscriptionMode,
+    callback: DataCallback
+  ): () => void {
+    // Normalize symbols to uppercase
+    const normalizedSymbols = symbols.map((s) => ({
+      symbol: s.symbol.toUpperCase(),
+      exchange: s.exchange.toUpperCase(),
+    }))
+
+    const keys = normalizedSymbols.map(
+      (s) => `${s.exchange}:${s.symbol}:${mode}`
+    )
+    const dataKeys = normalizedSymbols.map(
+      (s) => `${s.exchange}:${s.symbol}`
+    )
+
+    // Check if all symbols are already subscribed
+    const allExist = keys.every((key) => this.subscriptions.has(key))
+
+    if (allExist) {
+      // All exist - just add callbacks and return cached data
+      keys.forEach((key, idx) => {
+        const entry = this.subscriptions.get(key)!
+        entry.callbacks.add(callback)
+        entry.refCount++
+        const cached = this.dataCache.get(dataKeys[idx])
+        if (cached) {
+          callback(cached)
+        }
+      })
+
+      return () => {
+        keys.forEach((key, _idx) => {
+          const entry = this.subscriptions.get(key)
+          if (entry) {
+            entry.callbacks.delete(callback)
+            entry.refCount--
+          }
+        })
+      }
+    }
+
+    // Register new subscriptions
+    normalizedSymbols.forEach((s, idx) => {
+      const key = keys[idx]
+      const dataKey = dataKeys[idx]
+
+      if (!this.subscriptions.has(key)) {
+        this.subscriptions.set(key, {
+          symbol: s.symbol,
+          exchange: s.exchange,
+          mode,
+          callbacks: new Set([callback]),
+          refCount: 1,
+        })
+      } else {
+        const entry = this.subscriptions.get(key)!
+        entry.callbacks.add(callback)
+        entry.refCount++
+      }
+
+      if (!this.dataCache.has(dataKey)) {
+        this.dataCache.set(dataKey, { symbol: s.symbol, exchange: s.exchange, data: {} })
+      }
+    })
+
+    // Send batch subscribe message if connected and authenticated
+    if (this.connectionState === 'authenticated') {
+      this.sendSubscribe(normalizedSymbols, mode)
+    } else if (this.fallbackMode && this.apiKey) {
+      // In fallback mode - start polling if not already running
+      if (!this.fallbackPollingInterval) {
+        this.startFallbackPolling()
+      } else {
+        // Fetch immediately for new subscriptions
+        this.fetchMarketDataViaRest()
+      }
+    }
+
+    // Return unsubscribe function for all symbols
+    return () => {
+      keys.forEach((key) => {
+        const entry = this.subscriptions.get(key)
+        if (entry) {
+          entry.callbacks.delete(callback)
+          entry.refCount--
+        }
+      })
+    }
+  }
+
   private unsubscribe(
     rawSymbol: string,
     rawExchange: string,

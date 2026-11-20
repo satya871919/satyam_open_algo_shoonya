@@ -60,6 +60,7 @@ const harness = vi.hoisted(() => {
       setVisibleLogicalRange: vi.fn(),
       fitContent: vi.fn(),
       setTheme: vi.fn(),
+      setBranding: vi.fn(),
       theme: () => ({ upColor: '#00aa00', downColor: '#aa0000', background: '#000000' }),
       subscribeCrosshairMove: (cb: (e: { time: number | null }) => void) => {
         chart.crosshair.push(cb)
@@ -124,6 +125,10 @@ describe('ScalpChart', () => {
     const options = chart().options
     expect(options.shortcuts).toBe(false)
     expect(options.axisChrome).toEqual({ barCountdown: true })
+    expect(options.branding).toMatchObject({
+      src: '/images/sp-trading-full-light.png',
+      label: 'SP Trading',
+    })
   })
 
   it('hands the engine real UTC seconds, not the backend shifted base', async () => {

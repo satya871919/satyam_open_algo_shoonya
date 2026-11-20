@@ -31,6 +31,7 @@ interface ChartStub {
   options: Record<string, unknown>
   series: SeriesStub[]
   setTheme: ReturnType<typeof vi.fn>
+  setBranding: ReturnType<typeof vi.fn>
   fitContent: ReturnType<typeof vi.fn>
   destroyed: number
 }
@@ -46,6 +47,7 @@ const harness = vi.hoisted(() => {
       options,
       series: [],
       setTheme: vi.fn(),
+      setBranding: vi.fn(),
       fitContent: vi.fn(),
       destroyed: 0,
       addSeries: (type: string, opts?: Record<string, unknown>) => {
@@ -157,6 +159,12 @@ describe('IVChart', () => {
     expect(live).toHaveLength(10)
     for (const chart of live) {
       expect(chart.options.shortcuts).toBe(false)
+      expect(chart.options.branding).toMatchObject({
+        src: '/images/sp-trading-full-light.png',
+        position: 'bottom-left',
+        label: 'SP Trading',
+      })
+      expect(chart.options.branding).toHaveProperty('href', undefined)
       expect(chart.series).toHaveLength(1)
       expect(chart.series[0].type).toBe('line')
     }
@@ -206,6 +214,9 @@ describe('IVChart', () => {
     expect(harness.createChart.mock.calls.length).toBe(created)
     expect(ce.setTheme).toHaveBeenLastCalledWith(
       expect.objectContaining({ upColor: CANDLE_PAIRS.dark.up, lastPriceUp: CANDLE_PAIRS.dark.up })
+    )
+    expect(ce.setBranding).toHaveBeenLastCalledWith(
+      expect.objectContaining({ src: '/images/sp-trading-full-dark.png' })
     )
     expect(ce.series[0].applyOptions).toHaveBeenLastCalledWith({ color: CANDLE_PAIRS.dark.up })
     expect(pe.series[0].applyOptions).toHaveBeenLastCalledWith({ color: CANDLE_PAIRS.dark.down })

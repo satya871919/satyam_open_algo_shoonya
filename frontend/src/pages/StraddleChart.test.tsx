@@ -40,6 +40,7 @@ interface ChartStub {
   destroyed: number
   fitContent: ReturnType<typeof vi.fn>
   setTheme: ReturnType<typeof vi.fn>
+  setBranding: ReturnType<typeof vi.fn>
 }
 
 const harness = vi.hoisted(() => {
@@ -54,6 +55,7 @@ const harness = vi.hoisted(() => {
       destroyed: 0,
       fitContent: vi.fn(),
       setTheme: vi.fn(),
+      setBranding: vi.fn(),
       addSeries: (type: string, opts?: Record<string, unknown>) => {
         const scale = vi.fn()
         const series: SeriesStub = {
@@ -172,6 +174,12 @@ describe('StraddleChart', () => {
     await renderLoaded()
     expect(harness.createChart).toHaveBeenCalledTimes(1)
     expect(chart().options.shortcuts).toBe(false)
+    expect(chart().options.branding).toMatchObject({
+      src: '/images/sp-trading-full-light.png',
+      position: 'bottom-left',
+      label: 'SP Trading',
+    })
+    expect(chart().options.branding).toHaveProperty('href', undefined)
 
     expect(chart().series.map((s) => [s.type, s.options.priceScaleId])).toEqual([
       ['line', 'right'],
@@ -259,6 +267,9 @@ describe('StraddleChart', () => {
     })
     expect(harness.createChart).toHaveBeenCalledTimes(1)
     expect(built.setTheme).toHaveBeenCalled()
+    expect(built.setBranding).toHaveBeenLastCalledWith(
+      expect.objectContaining({ src: '/images/sp-trading-full-dark.png' })
+    )
     expect(straddle().applyOptions).toHaveBeenLastCalledWith(
       expect.objectContaining({ color: '#4ade80' })
     )
@@ -275,6 +286,9 @@ describe('StraddleChart', () => {
       expect.objectContaining({ color: theme.lineColor })
     )
     expect(theme.lastPriceUp).toBe(theme.lineColor)
+    expect(built.setBranding).toHaveBeenLastCalledWith(
+      expect.objectContaining({ src: '/images/sp-trading-full-dark.png' })
+    )
     expect(harness.createChart).toHaveBeenCalledTimes(1)
   })
 

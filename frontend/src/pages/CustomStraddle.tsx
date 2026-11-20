@@ -53,6 +53,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { useSupportedExchanges } from '@/hooks/useSupportedExchanges'
+import { chartBrandingOptions } from '@/lib/branding'
 import { serverSentence } from '@/lib/serverSentence'
 import { buildChartTheme, isLightTheme, resolveCssColor } from '@/lib/trading/chartTheme'
 import { type AppMode, type ThemeMode, useThemeStore } from '@/stores/themeStore'
@@ -251,9 +252,11 @@ export default function CustomStraddle() {
 
   /** Push the current look, toggles and last P&L into the chart's theme. */
   const applyTheme = useCallback(() => {
-    chartRef.current?.setTheme(
-      chartThemeFor(lookRef.current, visibleRef.current, lastPnlRef.current)
-    )
+    const chart = chartRef.current
+    if (!chart) return
+    const { mode: currentMode, appMode: currentAppMode } = useThemeStore.getState()
+    chart.setTheme(chartThemeFor(lookRef.current, visibleRef.current, lastPnlRef.current))
+    chart.setBranding(chartBrandingOptions(currentMode, currentAppMode))
   }, [])
 
   // ── Chart ────────────────────────────────────────────────────
@@ -289,9 +292,11 @@ export default function CustomStraddle() {
     const host = chartContainerRef.current
     if (!host) return
 
+    const themeState = useThemeStore.getState()
     const shown = visibleRef.current
     const chart = createChart(host, {
       theme: chartThemeFor(lookRef.current, shown, lastPnlRef.current),
+      branding: chartBrandingOptions(themeState.mode, themeState.appMode),
       // A read-only analytic chart: the keyboard belongs to the page's controls.
       shortcuts: false,
       ariaLabel: 'Straddle P&L chart',

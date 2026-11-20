@@ -131,7 +131,8 @@ const NO_DRAW: DrawStats = {
 }
 
 const LAYOUT_KEY = 'oa-trading-layout'
-const SYNC_KEY = 'oa-trading-sync'
+const SYNC_KEY = 'oa-trading-sync-v2'
+const LEGACY_SYNC_KEY = 'oa-trading-sync'
 const PANEL_KEY = 'oa-trading-panel'
 /**
  * One-Click, the scalping terminal's convention ('1' / '0'). Off by default
@@ -198,16 +199,13 @@ function readArmed(): boolean {
 }
 
 /**
- * What a linked grid agrees on. The engine keeps the three independent, so the
- * control does too: a trader watching one instrument across four timeframes
- * wants crosshair and time linked and the symbol emphatically not, while a
- * sector grid wants the opposite.
+ * What a linked grid agrees on. The engine keeps the four channels independent,
+ * so a trader can link the crosshair without making every chart pan and zoom
+ * together, or link symbols without changing intervals.
  *
- * Crosshair and time default on and symbol defaults off, which is the reading
- * that never surprises: linking the pointer costs nothing, and silently
- * replacing the instrument in three panes because you changed one is a bad way
- * to learn a feature exists. With a single pane a group of one does nothing, so
- * the defaults are invisible until a grid makes them useful.
+ * The crosshair defaults on, but the viewport stays independent: moving one
+ * chart must not unexpectedly pan or zoom every other chart. Symbol and
+ * interval also default off. With a single pane a group of one does nothing.
  */
 interface SyncState {
   crosshair: boolean
@@ -215,7 +213,7 @@ interface SyncState {
   symbol: boolean
   interval: boolean
 }
-const SYNC_DEFAULT: SyncState = { crosshair: true, viewport: true, symbol: false, interval: false }
+const SYNC_DEFAULT: SyncState = { crosshair: true, viewport: false, symbol: false, interval: false }
 
 /** A preset's own split, which a layout opens with until somebody drags it. */
 function presetWeights(preset: LayoutPreset): GridWeights {
@@ -224,12 +222,15 @@ function presetWeights(preset: LayoutPreset): GridWeights {
 
 function readSync(): SyncState {
   try {
-    const raw = localStorage.getItem(SYNC_KEY)
+    const saved = localStorage.getItem(SYNC_KEY)
+    const raw = saved ?? localStorage.getItem(LEGACY_SYNC_KEY)
     if (!raw) return SYNC_DEFAULT
     const p = JSON.parse(raw) as Partial<SyncState>
     return {
       crosshair: p.crosshair ?? SYNC_DEFAULT.crosshair,
-      viewport: p.viewport ?? SYNC_DEFAULT.viewport,
+      // Older versions defaulted viewport linking on and persisted that
+      // default. Treat it as implicit so upgrading restores independent charts.
+      viewport: saved === null ? false : (p.viewport ?? SYNC_DEFAULT.viewport),
       symbol: p.symbol ?? SYNC_DEFAULT.symbol,
       interval: p.interval ?? SYNC_DEFAULT.interval,
     }
@@ -259,6 +260,8 @@ function TradingWorkspace({ account }: { account: string | null }) {
     return LAYOUTS.some((l) => l.id === saved) ? (saved as string) : 'single'
   })
   const [sync, setSync] = useState<SyncState>(readSync)
+  const syncRef = useRef(sync)
+  syncRef.current = sync
   /**
    * One-Click for the whole workspace. Every pane follows it, like sync: the
    * on-chart Buy in one pane must not fire while the same button in the next
@@ -968,7 +971,11 @@ function TradingWorkspace({ account }: { account: string | null }) {
       const focused = grid.terminals.get(grid.payload.activePaneId) ?? null
       activeRef.current = focused
       setFocusedPane(grid.payload.activePaneId)
-      setSync(grid.payload.sync)
+      // Viewport linking is a browser-wide preference. A workspace saved before
+      // independent chart navigation became the default may still store it on.
+      const restoredSync = { ...grid.payload.sync, viewport: syncRef.current.viewport }
+      grid.linkGroup.setOptions(restoredSync)
+      setSync(restoredSync)
       setArmed(false)
       setTool(null)
       setLatched(false)

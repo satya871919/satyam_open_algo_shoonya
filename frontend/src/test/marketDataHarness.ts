@@ -192,6 +192,33 @@ export class MarketDataManager {
     }
   }
 
+  subscribeBatch(
+    symbols: Array<{ symbol: string; exchange: string }>,
+    mode: Mode,
+    callback: (data: SymbolData) => void
+  ): () => void {
+    const entries: Subscription[] = []
+    for (const { symbol, exchange } of symbols) {
+      const sym = symbol.toUpperCase()
+      const exch = exchange.toUpperCase()
+      const key = `${exch}:${sym}:${mode}`
+      const entry: Subscription = { key, symbol: sym, exchange: exch, mode, callback }
+      feed.open.push(entry)
+      feed.opened.push(key)
+      entries.push(entry)
+      const cached = feed.cache.get(`${exch}:${sym}`)
+      if (cached) callback(cached)
+    }
+    return () => {
+      for (const entry of entries) {
+        const index = feed.open.indexOf(entry)
+        if (index < 0) continue
+        feed.open.splice(index, 1)
+        feed.closed.push(entry.key)
+      }
+    }
+  }
+
   getCachedData(symbol: string, exchange: string): SymbolData | undefined {
     return feed.cache.get(`${exchange.toUpperCase()}:${symbol.toUpperCase()}`)
   }

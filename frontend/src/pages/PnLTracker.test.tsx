@@ -40,6 +40,7 @@ interface ChartStub {
   priceLines: PriceLineStub[]
   weights: Map<number, number>
   setTheme: ReturnType<typeof vi.fn>
+  setBranding: ReturnType<typeof vi.fn>
   fitContent: ReturnType<typeof vi.fn>
   takeScreenshot: ReturnType<typeof vi.fn>
   destroyed: number
@@ -60,6 +61,7 @@ const harness = vi.hoisted(() => {
       priceLines: [],
       weights: new Map(),
       setTheme: vi.fn(),
+      setBranding: vi.fn(),
       fitContent: vi.fn(),
       takeScreenshot: vi.fn(() => ({ toDataURL: () => 'data:image/png;base64,Q0hBUlQ=' })),
       destroyed: 0,
@@ -177,6 +179,10 @@ describe('PnLTracker', () => {
   it('draws MTM over drawdown, 3 to 1, both split at zero', () => {
     render(<PnLTracker />)
     expect(harness.createChart).toHaveBeenCalledTimes(1)
+    expect(chart().options.branding).toMatchObject({
+      src: '/images/sp-trading-full-light.png',
+      label: 'SP Trading',
+    })
     expect(chart().options.shortcuts).toBe(false)
 
     const [pnl, drawdown] = chart().series
@@ -256,6 +262,9 @@ describe('PnLTracker', () => {
     expect(harness.createChart).toHaveBeenCalledTimes(1)
     expect(chart().setTheme).toHaveBeenLastCalledWith(
       expect.objectContaining({ upColor: CANDLE_PAIRS.dark.up })
+    )
+    expect(chart().setBranding).toHaveBeenLastCalledWith(
+      expect.objectContaining({ src: '/images/sp-trading-full-dark.png' })
     )
     expect(pnlSeries().applyOptions).toHaveBeenLastCalledWith(
       expect.objectContaining({

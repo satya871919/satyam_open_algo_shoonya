@@ -49,6 +49,7 @@ interface WidgetStub {
     dataLayer: { length: number }
     getVisibleLogicalRange: () => { from: number; to: number } | null
     setVisibleLogicalRange: (r: { from: number; to: number }) => void
+    setBranding: (options: unknown) => void
   }
   on: (event: string, cb: (payload: unknown) => void) => () => void
   destroy: () => void
@@ -75,6 +76,7 @@ const harness = vi.hoisted(() => {
       chart: {
         dataLayer: { length: 0 },
         getVisibleLogicalRange: () => widget.__range,
+        setBranding: vi.fn(),
         setVisibleLogicalRange: (r: { from: number; to: number }) => {
           widget.ranges.push(r)
           widget.__range = r
@@ -143,6 +145,10 @@ describe('OpenAlgoChart', () => {
     render(<OpenAlgoChart feed={feed} symbol="RELIANCE" exchange="NSE" interval="D" />)
     await waitFor(() => expect(harness.createWidget).toHaveBeenCalled())
     expect('onOrder' in latest().options).toBe(false)
+    expect(latest().options.branding).toMatchObject({
+      src: '/images/sp-trading-full-light.png',
+      label: 'SP Trading',
+    })
   })
 
   it('closes the history poll, so nothing re-reads the store in the background', async () => {

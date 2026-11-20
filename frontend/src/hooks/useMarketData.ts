@@ -111,21 +111,18 @@ export function useMarketData({
       manager.connect()
     }
 
-    // Subscribe to each symbol
-    const unsubscribes: Array<() => void> = []
-
-    for (const { symbol, exchange } of symbols) {
-      const unsubscribe = manager.subscribe(symbol, exchange, mode, (data: SymbolData) => {
-        setMarketData((prev) => {
-          const key = `${data.exchange}:${data.symbol}`
-          const updated = new Map(prev)
-          updated.set(key, data)
-          return updated
-        })
+    // Batch subscribe to all symbols in a single WebSocket message
+    const unsubscribe = manager.subscribeBatch(symbols, mode, (data: SymbolData) => {
+      setMarketData((prev) => {
+        const key = `${data.exchange}:${data.symbol}`
+        const updated = new Map(prev)
+        updated.set(key, data)
+        return updated
       })
-      unsubscribes.push(unsubscribe)
+    })
 
-      // Initialize with cached data if available
+    // Initialize with cached data if available
+    for (const { symbol, exchange } of symbols) {
       const cached = manager.getCachedData(symbol, exchange)
       if (cached) {
         const key = `${exchange}:${symbol}`
@@ -138,8 +135,7 @@ export function useMarketData({
     }
 
     return () => {
-      // Unsubscribe from all symbols
-      unsubscribes.forEach((unsub) => unsub())
+      unsubscribe()
     }
   }, [enabled, symbolsKey, mode])
 

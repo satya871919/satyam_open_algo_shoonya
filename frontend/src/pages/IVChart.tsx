@@ -39,6 +39,7 @@ import {
 } from '@/components/ui/select'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useSupportedExchanges } from '@/hooks/useSupportedExchanges'
+import { chartBrandingOptions } from '@/lib/branding'
 import { serverSentence } from '@/lib/serverSentence'
 import { buildChartTheme } from '@/lib/trading/chartTheme'
 import { type AppMode, type ThemeMode, useThemeStore } from '@/stores/themeStore'
@@ -214,6 +215,7 @@ export default function IVChart() {
 
         const chart = createChart(container, {
           theme,
+          branding: chartBrandingOptions(mode, appMode),
           ariaLabel: `${title} chart`,
           // A read-only study: the keyboard belongs to the page, and the hover
           // zoom rail is more chrome than a half-width panel has room for.
@@ -252,6 +254,7 @@ export default function IVChart() {
     for (const [, inst] of chartsRef.current) {
       const { theme, color } = sideTheme(mode, appMode, inst.side)
       inst.chart.setTheme(theme)
+      inst.chart.setBranding(chartBrandingOptions(mode, appMode))
       inst.series.applyOptions({ color })
     }
   }, [mode, appMode])

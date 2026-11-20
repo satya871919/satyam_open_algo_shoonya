@@ -347,7 +347,7 @@ export default function StrategyBuilder() {
               selectedUnderlying,
               underlyingExchange,
               expiry,
-              20,
+              5,
               { withGreeks: true }
             )
           )
@@ -813,7 +813,7 @@ export default function StrategyBuilder() {
             selectedUnderlying,
             underlyingExchangeFor(selectedExchange, selectedUnderlying),
             normalizedExpiry,
-            20,
+            5,
             { withGreeks: true }
           )
         )
@@ -1395,7 +1395,7 @@ export default function StrategyBuilder() {
               selectedUnderlying,
               underlyingExchangeFor(selectedExchange, selectedUnderlying),
               legExpiry,
-              20,
+              5,
               { withGreeks: true }
             )
           )

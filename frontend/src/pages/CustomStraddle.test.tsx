@@ -42,6 +42,7 @@ interface ChartStub {
   destroyed: number
   fitContent: ReturnType<typeof vi.fn>
   setTheme: ReturnType<typeof vi.fn>
+  setBranding: ReturnType<typeof vi.fn>
 }
 
 const harness = vi.hoisted(() => {
@@ -56,6 +57,7 @@ const harness = vi.hoisted(() => {
       destroyed: 0,
       fitContent: vi.fn(),
       setTheme: vi.fn(),
+      setBranding: vi.fn(),
       addSeries: (type: string, opts?: Record<string, unknown>) => {
         const scale = vi.fn()
         const series: SeriesStub = {
@@ -197,6 +199,10 @@ describe('CustomStraddle', () => {
     render(<CustomStraddle />)
     expect(harness.createChart).toHaveBeenCalledTimes(1)
     expect(chart().options.shortcuts).toBe(false)
+    expect(chart().options.branding).toMatchObject({
+      src: '/images/sp-trading-full-light.png',
+      label: 'SP Trading',
+    })
 
     expect(chart().series.map((s) => [s.type, s.options.priceScaleId])).toEqual([
       ['baseline', 'right'],
@@ -311,6 +317,9 @@ describe('CustomStraddle', () => {
       useThemeStore.setState({ mode: 'dark' })
     })
     expect(harness.createChart).toHaveBeenCalledTimes(1)
+    expect(built.setBranding).toHaveBeenLastCalledWith(
+      expect.objectContaining({ src: '/images/sp-trading-full-dark.png' })
+    )
     const dark = built.setTheme.mock.lastCall?.[0]
     expect(dark.upColor).not.toBe(lightTheme.upColor)
     // Still the losing run, now in the dark theme's loss colour.
@@ -327,6 +336,9 @@ describe('CustomStraddle', () => {
     })
     expect(built.setTheme.mock.calls.length).toBeGreaterThan(before)
     expect(built.setTheme.mock.lastCall?.[0].lastPriceUp).toBe(dark.downColor)
+    expect(built.setBranding).toHaveBeenLastCalledWith(
+      expect.objectContaining({ src: '/images/sp-trading-full-dark.png' })
+    )
     expect(harness.createChart).toHaveBeenCalledTimes(1)
   })
 
