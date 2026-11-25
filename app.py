@@ -1,23 +1,17 @@
 # Load and check environment variables before anything else
-from utils.env_check import load_and_check_env_variables  # Import the environment check function
+from utils.env_check import load_and_check_env_variables
 
 load_and_check_env_variables()
 
+import mimetypes
 import os
 import re
 import sys
+import threading
 
 
 def _ensure_db_directory() -> None:
-    """Create the SQLite database directory before any engine connects.
-
-    On a fresh install ``db/`` does not exist yet, and the database engines (and
-    their background threads) are created/used in parallel during startup. The
-    first connection then fails with ``unable to open database file``, which can
-    leave a database partially initialized. Creating the directory up front, before
-    any database module is imported, removes that race. Derived from DATABASE_URL
-    (all SQLite databases live under the same directory).
-    """
+    """Create the SQLite database directory before any engine connects."""
     db_url = os.getenv("DATABASE_URL", "sqlite:///db/openalgo.db")
     if db_url.startswith("sqlite:///"):
         db_path = db_url.replace("sqlite:///", "", 1)
@@ -28,15 +22,11 @@ def _ensure_db_directory() -> None:
 
 _ensure_db_directory()
 
-# Show loading indicator early (before heavy imports) so user sees immediate feedback.
-# The full banner with "Ready" status prints later, right before the server accepts connections.
 if __name__ == "__main__":
     _debug = os.getenv("FLASK_DEBUG", "False").lower() in ("true", "1", "t")
     _is_reloader_parent = _debug and os.environ.get("WERKZEUG_RUN_MAIN") != "true"
     if not _is_reloader_parent:
-        print("\033[93mStarting OpenAlgo...\033[0m", flush=True)
-
-import mimetypes
+        print("\033[93mStarting OpenAlgo (Shoonya Edition)...\033[0m", flush=True)
 
 mimetypes.add_type("application/javascript", ".js")
 mimetypes.add_type("text/css", ".css")
@@ -45,78 +35,72 @@ mimetypes.add_type("application/font-woff", ".woff")
 mimetypes.add_type("application/font-woff2", ".woff2")
 
 from flask import Flask, session
-from flask_wtf.csrf import CSRFProtect  # Import CSRF protection
+from flask_wtf.csrf import CSRFProtect
 
-from blueprints.admin import admin_bp  # Import the admin blueprint
-from blueprints.agent import agent_bp  # Import the agent blueprint
-from blueprints.alerts import alerts_bp  # Import the chart alert log blueprint
-from blueprints.analyzer import analyzer_bp  # Import the analyzer blueprint
+from blueprints.admin import admin_bp
+from blueprints.agent import agent_bp
+from blueprints.alerts import alerts_bp
+from blueprints.analyzer import analyzer_bp
 from blueprints.apikey import api_key_bp
-from blueprints.arbitrage import arbitrage_bp  # Import the Arbitrage blueprint
+from blueprints.arbitrage import arbitrage_bp
 from blueprints.auth import auth_bp
 from blueprints.brlogin import brlogin_bp
-from blueprints.broker_credentials import (
-    broker_credentials_bp,  # Import the broker credentials blueprint
-)
-from blueprints.chart_test import chart_test_bp  # Standalone chart test page (dev/testing only)
-from blueprints.chartink import chartink_bp  # Import the chartink blueprint
+from blueprints.broker_credentials import broker_credentials_bp
+from blueprints.chart_test import chart_test_bp
+from blueprints.chartink import chartink_bp
 from blueprints.core import core_bp
-from blueprints.custom_indicators import custom_indicators_bp  # User chart indicators
-from blueprints.custom_straddle import custom_straddle_bp  # Import custom straddle blueprint
+from blueprints.custom_indicators import custom_indicators_bp
+from blueprints.custom_straddle import custom_straddle_bp
 from blueprints.dashboard import dashboard_bp
-from blueprints.flow import flow_bp  # Import the flow blueprint
-from blueprints.gamma_density import gamma_density_bp  # Import the Gamma Density blueprint
+from blueprints.flow import flow_bp
+from blueprints.gamma_density import gamma_density_bp
 from blueprints.gc_json import gc_json_bp
-from blueprints.gex import gex_bp  # Import the GEX blueprint
-from blueprints.health import health_bp  # Import the health monitoring blueprint
-from blueprints.historify import historify_bp  # Import the historify blueprint
-from blueprints.ivchart import ivchart_bp  # Import the IV chart blueprint
-from blueprints.ivsmile import ivsmile_bp  # Import the IV Smile blueprint
-from blueprints.latency import latency_bp  # Import the latency blueprint
-from blueprints.leverage import leverage_bp  # Import the leverage blueprint
+from blueprints.gex import gex_bp
+from blueprints.health import health_bp
+from blueprints.historify import historify_bp
+from blueprints.ivchart import ivchart_bp
+from blueprints.ivsmile import ivsmile_bp
+from blueprints.latency import latency_bp
+from blueprints.leverage import leverage_bp
 from blueprints.log import log_bp
-from blueprints.logging import logging_bp  # Import the logging blueprint
-from blueprints.master_contract_status import (
-    master_contract_status_bp,  # Import the master contract status blueprint
-)
-from blueprints.oiprofile import oiprofile_bp  # Import the OI Profile blueprint
-from blueprints.oitracker import oitracker_bp  # Import the OI tracker blueprint
-from blueprints.openscript import openscript_bp  # Trader authored OpenScript sources
-from blueprints.openscript_runner import openscript_runner_bp  # Runs one saved strategy
+from blueprints.logging import logging_bp
+from blueprints.master_contract_status import master_contract_status_bp
+from blueprints.oiprofile import oiprofile_bp
+from blueprints.oitracker import oitracker_bp
+from blueprints.openscript import openscript_bp
+from blueprints.openscript_runner import openscript_runner_bp
 from blueprints.orders import orders_bp
 from blueprints.platforms import platforms_bp
-from blueprints.playground import playground_bp  # Import the API playground blueprint
-from blueprints.pnltracker import pnltracker_bp  # Import the pnl tracker blueprint
-from blueprints.postback import postback_bp  # Import broker postback (order updates) blueprint
+from blueprints.playground import playground_bp
+from blueprints.pnltracker import pnltracker_bp
+from blueprints.postback import postback_bp
 from blueprints.python_strategy import initialize_with_app_context as init_python_strategy
-from blueprints.python_strategy import python_strategy_bp  # Import the python strategy blueprint
-from blueprints.react_app import (  # Import React frontend blueprint
+from blueprints.python_strategy import python_strategy_bp
+from blueprints.react_app import (
     is_react_frontend_available,
     react_bp,
     serve_react_app,
 )
-from blueprints.sandbox import sandbox_bp  # Import the sandbox blueprint
-from blueprints.scalping import scalping_bp  # Import the Scalping terminal blueprint
+from blueprints.sandbox import sandbox_bp
+from blueprints.scalping import scalping_bp
 from blueprints.search import search_bp
-from blueprints.security import security_bp  # Import the security blueprint
-from blueprints.settings import settings_bp  # Import the settings blueprint
-from blueprints.straddle_chart import straddle_bp  # Import the straddle chart blueprint
-from blueprints.strategy_chart import strategy_chart_bp  # Import the strategy chart blueprint
-from blueprints.strategy_module import strategy_module_bp  # Multi-leg options strategies with RMS
-from blueprints.strategy_portfolio import strategy_portfolio_bp  # Strategy Builder portfolio
-from blueprints.strike_profile import strike_profile_bp  # Import the Strike Profile blueprint
-from blueprints.system_permissions import (
-    system_permissions_bp,  # Import the system permissions blueprint
-)
-from blueprints.telegram import telegram_bp  # Import the telegram blueprint
-from blueprints.traffic import traffic_bp  # Import the traffic blueprint
+from blueprints.security import security_bp
+from blueprints.settings import settings_bp
+from blueprints.straddle_chart import straddle_bp
+from blueprints.strategy_chart import strategy_chart_bp
+from blueprints.strategy_module import strategy_module_bp
+from blueprints.strategy_portfolio import strategy_portfolio_bp
+from blueprints.strike_profile import strike_profile_bp
+from blueprints.system_permissions import system_permissions_bp
+from blueprints.telegram import telegram_bp
+from blueprints.traffic import traffic_bp
 from blueprints.tv_json import tv_json_bp
-from blueprints.vol_surface import vol_surface_bp  # Import the vol surface blueprint
-from blueprints.watchlist import watchlist_bp  # Import the charting watchlist blueprint
-from blueprints.websocket_example import websocket_bp  # Import the websocket example blueprint
-from blueprints.whatsapp import whatsapp_bp  # Import the WhatsApp blueprint
+from blueprints.vol_surface import vol_surface_bp
+from blueprints.watchlist import watchlist_bp
+from blueprints.websocket_example import websocket_bp
+from blueprints.whatsapp import whatsapp_bp
 from cors import init_cors
-from csp import apply_csp_middleware  # Import the CSP middleware
+from csp import apply_csp_middleware
 from database.action_center_db import init_db as ensure_action_center_tables_exists
 from database.agent_db import init_db as ensure_agent_tables_exists
 from database.alert_log_db import init_db as ensure_alert_log_tables_exists
@@ -126,7 +110,6 @@ from database.apscheduler_jobstore_db import ensure_jobstore_tables_exist
 from database.auth_db import init_db as ensure_auth_tables_exists
 from database.chartink_db import init_db as ensure_chartink_tables_exists
 from database.flow_db import init_db as ensure_flow_tables_exists
-from database.fyers_usage_db import init_db as ensure_fyers_usage_tables_exists
 from database.historify_db import init_database as ensure_historify_tables_exists
 from database.latency_db import init_latency_db as ensure_latency_tables_exists
 from database.leverage_db import init_db as ensure_leverage_tables_exists
@@ -140,41 +123,31 @@ from database.traffic_db import init_logs_db as ensure_traffic_logs_exists
 from database.user_db import init_db as ensure_user_tables_exists
 from database.watchlist_db import init_db as ensure_watchlist_tables_exists
 from database.whatsapp_db import (
-    get_bot_config as get_whatsapp_bot_config,  # noqa: F401  (triggers module-level init_db)
+    get_bot_config as get_whatsapp_bot_config,  # noqa: F401
 )
-from extensions import socketio  # Import SocketIO
-from limiter import limiter  # Import the Limiter instance
-from restx_api import api, api_v1_bp
+from extensions import socketio
+from limiter import limiter
+from restx_api import api, api_v1_bp  # noqa: F401
 from services.broker_keepalive_service import start_broker_keepalive
 from services.telegram_bot_service import telegram_bot_service
-from utils.health_monitor import init_health_monitoring  # Import health monitoring
-from utils.latency_monitor import init_latency_monitoring  # Import latency monitoring
-from utils.logging import (  # Import centralized logging
-    get_logger,
-    highlight_url,
-    log_startup_banner,
-)
+from utils.health_monitor import init_health_monitoring
+from utils.latency_monitor import init_latency_monitoring
+from utils.logging import get_logger
 from utils.plugin_loader import load_broker_auth_functions, load_broker_capabilities
-from utils.security_middleware import init_security_middleware  # Import security middleware
-from utils.socketio_error_handler import (
-    init_socketio_error_handling,  # Import Socket.IO error handler
-)
-from utils.traffic_logger import init_traffic_logging  # Import traffic logging
-from utils.version import get_version  # Import version management
-
-# Import WebSocket proxy server - using relative import to avoid @ symbol issues
+from utils.security_middleware import init_security_middleware
+from utils.socketio_error_handler import init_socketio_error_handling
+from utils.traffic_logger import init_traffic_logging
+from utils.version import get_version
 from websocket_proxy.app_integration import start_websocket_proxy
 
-# Initialize logger
 logger = get_logger(__name__)
 
 
 def create_app():
-    # Initialize Flask application
     app = Flask(__name__)
 
     # Initialize SocketIO
-    socketio.init_app(app)  # Link SocketIO to the Flask app
+    socketio.init_app(app)
 
     # Initialize EventBus subscribers
     from subscribers import register_all as register_event_subscribers
@@ -183,14 +156,12 @@ def create_app():
 
     # Initialize CSRF protection
     csrf = CSRFProtect(app)
+    setattr(app, "csrf", csrf)
 
-    # Store csrf instance in app config for use in other modules
-    app.csrf = csrf
-
-    # Initialize Flask-Limiter with the app object
+    # Initialize Flask-Limiter
     limiter.init_app(app)
 
-    # Initialize Flask-CORS only when explicitly enabled.
+    # Initialize Flask-CORS
     init_cors(app)
 
     # Apply Content Security Policy middleware
@@ -204,11 +175,7 @@ def create_app():
 
     app.jinja_env.filters["indian_number"] = format_indian_number
 
-    # Environment variables
-    # Security: Require APP_KEY (fail fast if missing). This is the Flask
-    # secret used to sign session cookies and generate CSRF tokens. If it
-    # were left as None, session/CSRF protection would silently break.
-    # Must be at least 32 characters for cryptographic security.
+    # Validate APP_KEY
     _app_key = os.getenv("APP_KEY")
     if not _app_key:
         raise RuntimeError(
@@ -222,31 +189,26 @@ def create_app():
             'Generate a secure key using: python -c "import secrets; print(secrets.token_hex(32))"'
         )
     app.secret_key = _app_key
-    app.config["SQLALCHEMY_DATABASE_URI"] = os.getenv("DATABASE_URL")
+    app.config["SQLALCHEMY_DATABASE_URI"] = os.getenv("DATABASE_URL", "sqlite:///db/openalgo.db")
 
     # Dynamic cookie security configuration based on HOST_SERVER
     HOST_SERVER = os.getenv("HOST_SERVER", "http://127.0.0.1:5000")
     USE_HTTPS = HOST_SERVER.startswith("https://")
 
-    # Configure session cookie security
     session_cookie_name = os.getenv("SESSION_COOKIE_NAME", "session")
     app.config.update(
         SESSION_COOKIE_HTTPONLY=True,
         SESSION_COOKIE_SAMESITE="Lax",
         SESSION_COOKIE_SECURE=USE_HTTPS,
         SESSION_COOKIE_NAME=session_cookie_name,
-        # PERMANENT_SESSION_LIFETIME is dynamically set at login to expire at 3:30 AM IST
     )
 
-    # Add cookie prefix for HTTPS environments
     if USE_HTTPS:
         app.config["SESSION_COOKIE_NAME"] = f"__Secure-{session_cookie_name}"
 
-    # CSRF configuration from environment variables
     csrf_enabled = os.getenv("CSRF_ENABLED", "TRUE").upper() == "TRUE"
     app.config["WTF_CSRF_ENABLED"] = csrf_enabled
 
-    # Configure CSRF cookie security to match session cookie
     csrf_cookie_name = os.getenv("CSRF_COOKIE_NAME", "csrf_token")
     app.config.update(
         WTF_CSRF_COOKIE_HTTPONLY=True,
@@ -255,23 +217,19 @@ def create_app():
         WTF_CSRF_COOKIE_NAME=csrf_cookie_name,
     )
 
-    # Add cookie prefix for CSRF token in HTTPS environments
     if USE_HTTPS:
         app.config["WTF_CSRF_COOKIE_NAME"] = f"__Secure-{csrf_cookie_name}"
 
-    # Parse CSRF time limit from environment
     csrf_time_limit = os.getenv("CSRF_TIME_LIMIT", "").strip()
     if csrf_time_limit:
         try:
             app.config["WTF_CSRF_TIME_LIMIT"] = int(csrf_time_limit)
         except ValueError:
-            app.config["WTF_CSRF_TIME_LIMIT"] = None  # Default to no limit if invalid
+            app.config["WTF_CSRF_TIME_LIMIT"] = None
     else:
-        app.config["WTF_CSRF_TIME_LIMIT"] = None  # No time limit if empty
+        app.config["WTF_CSRF_TIME_LIMIT"] = None
 
-    # Register RESTx API blueprint first
     # Register React frontend blueprint FIRST for migrated routes
-    # Register React frontend routes
     if is_react_frontend_available():
         app.register_blueprint(react_bp)
         logger.debug("React frontend enabled (frontend/dist found)")
@@ -280,24 +238,18 @@ def create_app():
 
     app.register_blueprint(api_v1_bp)
 
-    # Pull openstatz in on a background thread. It costs about 1.4s, almost all
-    # of it matplotlib and seaborn behind its plotting module, which the
-    # portfolio feature never uses -- every chart is drawn in the browser.
-    # Warming here means the first backtest does not pay it and boot does not
-    # block on it.
     from portfolio import warm_analytics
+
     warm_analytics()
 
-    # Exempt API endpoints from CSRF protection (they use API key authentication)
+    # Exempt API endpoints from CSRF protection
     csrf.exempt(api_v1_bp)
 
-    # Initialize security middleware before traffic logging
+    # Initialize security and traffic logging middlewares
     init_security_middleware(app)
-
-    # Initialize traffic logging middleware after security
     init_traffic_logging(app)
 
-    # Register other blueprints
+    # Register blueprints
     app.register_blueprint(auth_bp)
     app.register_blueprint(dashboard_bp)
     app.register_blueprint(orders_bp)
@@ -314,76 +266,61 @@ def create_app():
     app.register_blueprint(chartink_bp)
     app.register_blueprint(traffic_bp)
     app.register_blueprint(latency_bp)
-    app.register_blueprint(leverage_bp)  # Register Leverage blueprint
-    app.register_blueprint(health_bp)  # Register Health monitoring blueprint
-    app.register_blueprint(strategy_module_bp)  # Register Strategy Module blueprint
+    app.register_blueprint(leverage_bp)
+    app.register_blueprint(health_bp)
+    app.register_blueprint(strategy_module_bp)
     app.register_blueprint(master_contract_status_bp)
-    app.register_blueprint(websocket_bp)  # Register WebSocket example blueprint
-    app.register_blueprint(chart_test_bp)  # Register standalone chart test page (dev/testing only)
-    app.register_blueprint(custom_indicators_bp)  # Register user chart indicators blueprint
-    app.register_blueprint(openscript_bp)  # Register trader authored OpenScript sources
-    app.register_blueprint(openscript_runner_bp)  # Register the OpenScript strategy runner
-    app.register_blueprint(pnltracker_bp)  # Register PnL tracker blueprint
-    app.register_blueprint(python_strategy_bp)  # Register Python strategy blueprint
-    app.register_blueprint(telegram_bp)  # Register Telegram blueprint
-    app.register_blueprint(whatsapp_bp)  # Register WhatsApp blueprint
-    app.register_blueprint(security_bp)  # Register Security blueprint
-    app.register_blueprint(sandbox_bp)  # Register Sandbox blueprint
-    app.register_blueprint(playground_bp)  # Register API playground blueprint
-    app.register_blueprint(logging_bp)  # Register Logging blueprint
-    app.register_blueprint(admin_bp)  # Register Admin blueprint
-    app.register_blueprint(historify_bp)  # Register Historify blueprint
-    app.register_blueprint(ivchart_bp)  # Register IV chart blueprint
-    app.register_blueprint(scalping_bp)  # Register Scalping terminal blueprint
-    app.register_blueprint(watchlist_bp)  # Register charting watchlist blueprint
-    app.register_blueprint(alerts_bp)  # Register chart alert log blueprint
-    app.register_blueprint(oitracker_bp)  # Register OI tracker blueprint
-    app.register_blueprint(gamma_density_bp)  # Register Gamma Density blueprint
-    app.register_blueprint(straddle_bp)  # Register straddle chart blueprint
-    app.register_blueprint(strategy_chart_bp)  # Register strategy chart blueprint
-    app.register_blueprint(custom_straddle_bp)  # Register custom straddle blueprint
-    app.register_blueprint(vol_surface_bp)  # Register vol surface blueprint
-    app.register_blueprint(gex_bp)  # Register GEX blueprint
-    app.register_blueprint(strike_profile_bp)  # Register Strike Profile blueprint
-    app.register_blueprint(ivsmile_bp)  # Register IV Smile blueprint
-    app.register_blueprint(oiprofile_bp)  # Register OI Profile blueprint
-    app.register_blueprint(arbitrage_bp)  # Register Arbitrage blueprint
-    app.register_blueprint(flow_bp)  # Register Flow blueprint
-    app.register_blueprint(agent_bp)  # Register Agent blueprint
-    app.register_blueprint(broker_credentials_bp)  # Register Broker credentials blueprint
-    app.register_blueprint(system_permissions_bp)  # Register System permissions blueprint
-    app.register_blueprint(strategy_portfolio_bp)  # Register Strategy Portfolio blueprint
-    app.register_blueprint(postback_bp)  # Register broker postback (order-update webhook) blueprint
+    app.register_blueprint(websocket_bp)
+    app.register_blueprint(chart_test_bp)
+    app.register_blueprint(custom_indicators_bp)
+    app.register_blueprint(openscript_bp)
+    app.register_blueprint(openscript_runner_bp)
+    app.register_blueprint(pnltracker_bp)
+    app.register_blueprint(python_strategy_bp)
+    app.register_blueprint(telegram_bp)
+    app.register_blueprint(whatsapp_bp)
+    app.register_blueprint(security_bp)
+    app.register_blueprint(sandbox_bp)
+    app.register_blueprint(playground_bp)
+    app.register_blueprint(logging_bp)
+    app.register_blueprint(admin_bp)
+    app.register_blueprint(historify_bp)
+    app.register_blueprint(ivchart_bp)
+    app.register_blueprint(scalping_bp)
+    app.register_blueprint(watchlist_bp)
+    app.register_blueprint(alerts_bp)
+    app.register_blueprint(oitracker_bp)
+    app.register_blueprint(gamma_density_bp)
+    app.register_blueprint(straddle_bp)
+    app.register_blueprint(strategy_chart_bp)
+    app.register_blueprint(custom_straddle_bp)
+    app.register_blueprint(vol_surface_bp)
+    app.register_blueprint(gex_bp)
+    app.register_blueprint(strike_profile_bp)
+    app.register_blueprint(ivsmile_bp)
+    app.register_blueprint(oiprofile_bp)
+    app.register_blueprint(arbitrage_bp)
+    app.register_blueprint(flow_bp)
+    app.register_blueprint(agent_bp)
+    app.register_blueprint(broker_credentials_bp)
+    app.register_blueprint(system_permissions_bp)
+    app.register_blueprint(strategy_portfolio_bp)
+    app.register_blueprint(postback_bp)
 
-    # Remote MCP (HTTP + OAuth) — opt-in via MCP_HTTP_ENABLED. Off by default.
-    # Pre-flight refusal: must NEVER coexist with FLASK_DEBUG=True (debug-mode
-    # tracebacks would leak bearer tokens). See docs/prd/remote-mcp.md.
+    # Remote MCP (HTTP + OAuth) — opt-in via MCP_HTTP_ENABLED
     if os.getenv("MCP_HTTP_ENABLED", "False").lower() == "true":
-        # Match Flask's own truthy parsing (Flask accepts "1"/"t"/"true").
-        # The narrow `== "true"` check we used to do let FLASK_DEBUG=1
-        # slip past this guard while still putting Flask in debug mode.
         if os.getenv("FLASK_DEBUG", "False").lower() in ("true", "1", "t"):
             raise RuntimeError(
                 "MCP_HTTP_ENABLED=True is not allowed with FLASK_DEBUG enabled. "
                 "Debug-mode tracebacks leak bearer tokens. Disable one of them."
             )
 
-        # Hard requirement: MCP_PUBLIC_URL anchors the JWT iss/aud claims.
-        # Without it, tokens issued by two unconfigured instances would
-        # validate against each other (security review finding H-1).
         if not os.getenv("MCP_PUBLIC_URL"):
             raise RuntimeError(
                 "MCP_HTTP_ENABLED=True requires MCP_PUBLIC_URL to be set to "
-                "the canonical HTTPS origin (e.g. https://mcp.yourdomain.com). "
-                "Without it, JWT iss/aud claims collapse to empty strings and "
-                "tokens become portable across instances."
+                "the canonical HTTPS origin (e.g. https://mcp.yourdomain.com)."
             )
 
-        # Crucial ordering: set OPENALGO_MCP_HTTP_BOOT BEFORE importing the
-        # MCP HTTP blueprint. The blueprint transitively imports
-        # mcp.mcpserver, which checks this env var to skip the stdio
-        # argv requirement. Stdio launches never set this var, so their
-        # behavior is unaffected.
         os.environ["OPENALGO_MCP_HTTP_BOOT"] = "1"
 
         from blueprints.mcp_http import mcp_http_bp
@@ -391,9 +328,6 @@ def create_app():
         from database.oauth_db import init_db as init_oauth_db
         from utils.oauth_keys import ensure_signing_key
 
-        # Idempotent: tables created if missing, signing key generated on
-        # first run. Ordering matters — ensure_signing_key writes a row
-        # to oauth_signing_keys, so the table must exist first.
         init_oauth_db()
         ensure_signing_key()
 
@@ -401,16 +335,6 @@ def create_app():
         app.register_blueprint(mcp_wellknown_bp)
         app.register_blueprint(mcp_http_bp)
 
-        # Externally-facing OAuth endpoints and the MCP transport are
-        # called by hosted clients (claude.ai etc.) that have NO
-        # OpenAlgo session cookie. Flask-WTF's global CSRFProtect would
-        # 400 every request without these exemptions (security review
-        # finding C-1). Authentication on these endpoints is via
-        # Bearer token (transport) or client_secret + PKCE (token /
-        # revoke) — CSRF cookie protection doesn't apply.
-        # /oauth/authorize POST is intentionally NOT exempted: it's
-        # browser-driven from the OpenAlgo session and uses the
-        # rendered consent form's csrf_token field.
         with app.app_context():
             for endpoint in (
                 "mcp_oauth_bp.token_endpoint",
@@ -423,111 +347,97 @@ def create_app():
                 if view is not None:
                     csrf.exempt(view)
 
-        # Boot warnings for non-default security postures so an admin
-        # who flipped these months ago and forgot is reminded on every
-        # restart (security review finding L-3).
-        if os.getenv("MCP_OAUTH_WRITE_SCOPE_ENABLED", "True").lower() == "true":
-            logger.warning(
-                "[MCP] write:orders scope is ENABLED — MCP clients can place real orders."
-            )
-        if os.getenv("MCP_OAUTH_REQUIRE_APPROVAL", "False").lower() != "true":
-            logger.warning(
-                "[MCP] DCR auto-approval is ENABLED — any DCR registration "
-                "can immediately complete OAuth without admin review."
-            )
-
         logger.info("Remote MCP blueprints registered (OAuth + JSON-RPC dispatch + SSE).")
 
-    # Exempt webhook endpoints from CSRF protection after app initialization
+    # Shared DB readiness event (typed locally for Pylance safety)
+    db_ready_event = threading.Event()
+    setattr(app, "db_ready", db_ready_event)
+
+    # Exempt webhook, callback, and health check endpoints from CSRF protection
     with app.app_context():
-        # Exempt webhook endpoints from CSRF protection
         csrf.exempt(app.view_functions["chartink_bp.webhook"])
-        # The strategy module's inbound alert path. Unauthenticated by
-        # design: the URL token is the credential, and TradingView cannot
-        # carry a CSRF token.
         csrf.exempt(app.view_functions["strategy_module_bp.webhook"])
-        # Broker postbacks are machine-to-machine POSTs — brokers cannot carry
-        # a CSRF token; validation is per-broker (active-session match +
-        # Zerodha checksum) inside blueprints/postback.py.
         csrf.exempt(app.view_functions["postback_bp.broker_postback"])
         csrf.exempt(app.view_functions["flow.trigger_webhook"])
         csrf.exempt(app.view_functions["flow.trigger_webhook_with_symbol"])
-
-        # Exempt broker callback endpoints from CSRF protection (OAuth callbacks from external providers)
         csrf.exempt(app.view_functions["brlogin.broker_callback"])
-
-        # auth.logout is deliberately NOT exempt. It is not "safe" in the CSRF
-        # sense: it revokes the broker token, publishes CACHE_INVALIDATE_ALL
-        # (tearing down the shared WebSocket feed), clears every device's
-        # session and flushes the symbol cache. SameSite=Lax alone does not
-        # cover it - ports are not part of the same-site check, so any other
-        # service on the same host could forge the POST. The GET form is
-        # covered separately by the fetch-metadata check in auth.logout, since
-        # Flask-WTF never validates safe methods.
-
-        # Exempt health check endpoints from CSRF (for AWS ELB, K8s probes)
         csrf.exempt(app.view_functions["health_bp.simple_health"])
         csrf.exempt(app.view_functions["health_bp.detailed_health_check"])
 
-        # Initialize latency monitoring (after registering API blueprint)
         init_latency_monitoring(app)
-
-        # Initialize health monitoring (background daemon thread)
         init_health_monitoring(app)
-
-        # Keep the pooled broker HTTP connection warm during market hours so
-        # orders never pay a fresh TCP+TLS handshake after an idle gap
         start_broker_keepalive()
 
-        # Signal for "background DB table creation has finished". Created here
-        # rather than in setup_environment() because the order-update boot
-        # thread started just below has to wait on it, and it runs before
-        # setup_environment() is ever called. setup_environment() reuses this
-        # same event instead of replacing it.
-        import threading as _th
-
-        app.db_ready = _th.Event()
-
-        # Start real-time order-update adapters for any existing broker
-        # session (broker order-WS / postback ingestion -> OrderUpdateEvent ->
-        # socketio + websocket_proxy relay). Runs on a background thread that
-        # warms the ZMQ publisher immediately, then waits for db_ready before
-        # touching the auth table.
         from services.order_update_service import start_order_update_adapters_on_boot
 
-        start_order_update_adapters_on_boot(db_ready=app.db_ready)
-
-        # NOTE: Python strategy scheduler is initialized in setup_environment()
-        # AFTER database tables are created, to avoid "no such table" errors on fresh install
-
-        # NOTE: Telegram bot auto-start moved to background init thread
-        # (after DB tables are created) to avoid "no such table" on fresh install
+        start_order_update_adapters_on_boot(db_ready=db_ready_event)
 
     @app.before_request
     def wait_for_db_ready():
         """Block requests until background database initialization completes."""
         from flask import request
 
-        # Static assets don't need DB
         if request.path.startswith("/static/") or request.path.startswith("/assets/"):
             return
 
-        # Wait up to 30s for DB init (typically ~3.5s)
-        if hasattr(app, "db_ready") and not app.db_ready.is_set():
-            app.db_ready.wait(timeout=30)
+        if not db_ready_event.is_set():
+            db_ready_event.wait(timeout=30)
+
+    @app.before_request
+    def auto_attach_shoonya_session():
+        """Automatically attach persisted same-day Shoonya session to browser Flask session."""
+        from flask import request
+
+        from utils.config import is_shoonya_autologin_enabled
+        from utils.session import get_session_expiry_time
+
+        if session.get("logged_in"):
+            return
+
+        if not is_shoonya_autologin_enabled():
+            return
+
+        if request.path.startswith(
+            ("/static/", "/assets/", "/api/v1/", "/auth/logout", "/logout", "/_reload-ws")
+        ):
+            return
+
+        try:
+            from database.auth_db import get_autologin_session
+
+            autologin_data = get_autologin_session(broker="shoonya")
+            if autologin_data and autologin_data.get("name"):
+                username = autologin_data["name"]
+                session["user"] = username
+                session["user_session_key"] = username
+                session["broker"] = autologin_data.get("broker") or "shoonya"
+                session["logged_in"] = True
+                session["login_time"] = autologin_data["login_time"]
+                if autologin_data.get("user_id"):
+                    session["USER_ID"] = autologin_data["user_id"]
+                if autologin_data.get("feed_token"):
+                    session["FEED_TOKEN"] = autologin_data["feed_token"]
+                if autologin_data.get("session_id"):
+                    session["session_id"] = autologin_data["session_id"]
+                app.config["PERMANENT_SESSION_LIFETIME"] = get_session_expiry_time()
+                session.permanent = True
+                logger.debug(
+                    f"Auto-attached Shoonya session to browser for user: {username}"
+                )
+        except Exception as e:
+            logger.debug(f"Auto-attach Shoonya session skipped: {e}")
 
     @app.before_request
     def check_session_expiry():
-        """Check session validity before each request"""
+        """Check session validity before each request."""
         from flask import request
 
         from utils.session import is_session_valid, revoke_user_tokens
 
-        # Skip session check for static files, API endpoints, and public routes
         if (
             request.path.startswith("/static/")
             or request.path.startswith("/api/")
-            or request.path.startswith("/assets/")  # React frontend assets
+            or request.path.startswith("/assets/")
             or request.path
             in [
                 "/",
@@ -535,47 +445,35 @@ def create_app():
                 "/auth/reset-password",
                 "/auth/csrf-token",
                 "/auth/broker-config",
-                "/auth/session-status",  # Session status check for React SPA
-                "/auth/check-setup",  # Setup check for React SPA
+                "/auth/session-status",
+                "/auth/check-setup",
                 "/setup",
                 "/download",
                 "/faq",
-                "/login",  # React login page
+                "/login",
             ]
-            or request.path.startswith("/auth/broker/")  # OAuth callbacks
+            or request.path.startswith("/auth/broker/")
+            or request.path.startswith("/shoonya/")
             or request.path.startswith("/_reload-ws")
-        ):  # WebSocket reload endpoint
+        ):
             return
 
-        # Check if user is logged in and session is expired
         if session.get("logged_in") and not is_session_valid():
             logger.info(f"Session expired for user: {session.get('user')} - revoking tokens")
-            # Revoke the DB broker token at the daily rollover (same as manual logout).
-            # Indian broker tokens are invalidated broker-side at ~3 AM IST, so a
-            # preserved token is dead anyway; keeping it (revoke_db_tokens=False) made
-            # the next login's session-resume path reuse a stale token and skip broker
-            # OAuth, leaving the WebSocket feed dead with 403s until a restart (#1419).
-            # Revoking sets is_revoked=True so _try_resume_broker_session refuses to
-            # resume and forces a fresh broker authentication. Crypto/24-7 brokers never
-            # reach this branch (is_session_valid() stays True when expiry is disabled).
             revoke_user_tokens(revoke_db_tokens=True)
             session.clear()
-            # Don't redirect here, let individual routes handle it
 
     @app.errorhandler(400)
     def csrf_error(error):
-        """Custom handler for CSRF errors (400 Bad Request)"""
         from flask import flash, jsonify, redirect, request, url_for
-
-        error_description = str(error)
 
         from utils.url_redaction import redact_url_credentials
 
+        error_description = str(error)
         logger.warning(
             f"CSRF Error on {redact_url_credentials(request.path)}: {error_description}"
         )
 
-        # Check if it's a CSRF error
         if "CSRF" in error_description or "csrf" in error_description.lower():
             if request.is_json or request.path.startswith("/api"):
                 return jsonify(
@@ -584,31 +482,23 @@ def create_app():
                         "message": "Security token expired or invalid. Please refresh the page and try again.",
                     }
                 ), 400
-            else:
-                flash("Security token expired. Please try again.", "error")
-                return redirect(request.referrer or url_for("auth.login"))
+            flash("Security token expired. Please try again.", "error")
+            return redirect(request.referrer or url_for("auth.login"))
 
-        # For other 400 errors
         return str(error), 400
 
     @app.errorhandler(404)
     def not_found_error(error):
-        from flask import jsonify, request, session
+        from flask import jsonify, make_response, request, session
 
         from database.traffic_db import Error404Tracker
         from utils.ip_helper import get_real_ip
-
-        client_ip = get_real_ip()
         from utils.url_redaction import redact_url_credentials
 
+        client_ip = get_real_ip()
         path = redact_url_credentials(request.path)
-
-        # Skip 404 tracking for authenticated users (prevents self-ban during
-        # login flows, broker OAuth callbacks, or normal navigation to
-        # React routes that don't have explicit Flask endpoints)
         is_authenticated = session.get("logged_in", False)
 
-        # Skip tracking for common browser/crawler requests that are not attack probes
         safe_prefixes = (
             "/favicon",
             "/robots.txt",
@@ -624,40 +514,25 @@ def create_app():
         if not is_authenticated and not path.startswith(safe_prefixes):
             Error404Tracker.track_404(client_ip, path)
 
-        # Namespaces that must never answer with the React shell. serve_react_app
-        # returns a 200 Response, and a Flask error handler keeps the status of a
-        # Response it returns, so every unmatched path used to answer 200
-        # text/html: an API client that mistyped an endpoint saw response.ok pass
-        # with an unparseable body, and a request for a stale content-hashed
-        # chunk got HTML that the browser then tried to execute as JavaScript,
-        # white-screening the SPA with "Unexpected token '<'" instead of failing
-        # cleanly. React routes without a Flask endpoint still fall through to
-        # the shell, which is deliberate.
         if path.startswith(("/api/", "/flow/api/", "/flow/webhook/")):
             return jsonify({"status": "error", "message": "Not found", "path": path}), 404
 
         if path.startswith(("/assets/", "/static/")) or "." in path.rsplit("/", 1)[-1]:
-            return "Not Found", 404
+            return make_response(("Not Found", 404))
 
-        return serve_react_app(), 404
+        return make_response((serve_react_app(), 404))
 
     @app.errorhandler(500)
     def internal_server_error(e):
-        """Custom handler for 500 Internal Server Error"""
         from flask import redirect
 
-        # Log the error
         logger.error(f"Server Error: {e}")
-
-        # Redirect to React error page
         return redirect("/error")
 
     @app.errorhandler(429)
     def rate_limit_exceeded(e):
-        """Custom handler for 429 Too Many Requests"""
         from flask import redirect, request
 
-        # Log rate limit hit
         from utils.url_redaction import redact_url_credentials
 
         logger.warning(
@@ -665,7 +540,6 @@ def create_app():
             f"{redact_url_credentials(request.path)}"
         )
 
-        # For API requests, return JSON response
         if request.path.startswith("/api/"):
             return {
                 "status": "error",
@@ -673,7 +547,6 @@ def create_app():
                 "retry_after": 60,
             }, 429
 
-        # For web requests, redirect to React rate-limited page
         return redirect("/rate-limited")
 
     @app.context_processor
@@ -682,59 +555,35 @@ def create_app():
 
     @app.route("/api/config/host")
     def get_host_config():
-        """Return the HOST_SERVER configuration for frontend webhook URL generation"""
         from flask import jsonify
 
         host_server = os.getenv("HOST_SERVER", "http://127.0.0.1:5000")
-
-        # Determine if webhook URL is externally accessible
         is_localhost = any(
             local in host_server.lower() for local in ["localhost", "127.0.0.1", "0.0.0.0"]
         )
-
         return jsonify({"host_server": host_server, "is_localhost": is_localhost})
 
     return app
 
 
-def setup_environment(app):
+def setup_environment(app: Flask):
     with app.app_context():
-        # load broker plugins (lazy - no actual imports until login)
-        app.broker_auth_functions = load_broker_auth_functions()
-        load_broker_capabilities()  # cache plugin.json data in memory
+        setattr(app, "broker_auth_functions", load_broker_auth_functions())
+        load_broker_capabilities()
 
-    # Regenerate the gzip variants of the built frontend assets. These are no
-    # longer committed with frontend/dist/ (they bloated the repository history
-    # badly - see utils/precompress_assets), so they are rebuilt here from the
-    # tracked originals whenever a `git pull` brings a new build.
-    #
-    # Deliberately synchronous, ahead of the background DB thread. Under
-    # eventlet a threading.Thread is a green thread, so running ~3s of gzip
-    # there would stall the entire worker mid-request; run at boot, before the
-    # first request is served, it costs nothing anyone can observe. Subsequent
-    # boots find every variant current and finish in ~30ms.
     from blueprints.react_app import FRONTEND_DIST
     from utils.precompress_assets import ensure_precompressed_assets
 
     ensure_precompressed_assets(FRONTEND_DIST)
 
-    # Setup ngrok cleanup handlers (always register, regardless of ngrok being enabled)
-    # This ensures proper cleanup on shutdown even if ngrok is enabled/disabled via UI
-    # The actual tunnel creation happens in the __main__ block below
     from utils.ngrok_manager import setup_ngrok_handlers
 
     setup_ngrok_handlers()
 
-    # Run database init + schedulers in background thread
-    # Tables already exist after first run; this is a safety check
-    import threading
-
-    # Event to signal when DB init is complete (cache restoration and the
-    # order-update boot scan wait on this). create_app() already created it so
-    # the order-update thread could take a reference; only create one here if
-    # setup_environment is somehow called against an app that skipped that.
-    if not hasattr(app, "db_ready"):
-        app.db_ready = threading.Event()
+    db_ready_event: threading.Event | None = getattr(app, "db_ready", None)
+    if db_ready_event is None:
+        db_ready_event = threading.Event()
+        setattr(app, "db_ready", db_ready_event)
 
     def _init_databases_and_schedulers():
         with app.app_context():
@@ -769,30 +618,13 @@ def setup_environment(app):
                 ("Scalping DB", ensure_scalping_tables_exists),
                 ("Watchlist DB", ensure_watchlist_tables_exists),
                 ("Alert Log DB", ensure_alert_log_tables_exists),
-                ("Fyers API Usage DB", ensure_fyers_usage_tables_exists),
                 ("Leverage DB", ensure_leverage_tables_exists),
                 ("Strategy Portfolio DB", ensure_strategy_portfolio_tables_exists),
                 ("Agent DB", ensure_agent_tables_exists),
-                # Created here, not left to APScheduler's own CREATE TABLE in
-                # scheduler.start(). That DDL would otherwise run further down
-                # this function, after db_ready releases the rest of the boot,
-                # and has to win the write lock against it. This phase is
-                # single-threaded, so the same DDL runs uncontended. See #1750.
                 ("Scheduler Job Stores", ensure_jobstore_tables_exist),
             ]
 
             db_init_start = time.time()
-            # max_workers=1 on purpose: 14 of the 20 functions above target the
-            # same file (openalgo.db), and SQLite permits one writer per file,
-            # so running them concurrently made them contend for the write lock
-            # rather than progress in parallel - the "database is locked" seen
-            # on fresh installs. The parallelism was never real; serialising is
-            # measurably faster on the restart path because it stops threads
-            # queueing behind each other. See PR #1734.
-            #
-            # The executor is kept rather than a plain loop so each function
-            # stays its own future: one database failing to initialise must not
-            # abort the other nineteen.
             with ThreadPoolExecutor(max_workers=1) as executor:
                 futures = {executor.submit(func): name for name, func in db_init_functions}
                 for future in as_completed(futures):
@@ -805,18 +637,6 @@ def setup_environment(app):
             db_init_time = (time.time() - db_init_start) * 1000
             logger.debug(f"All databases initialized ({db_init_time:.0f}ms)")
 
-            # The strategy book must be listening before any order can be
-            # accepted: order.placed carries the only copy of the strategy tag,
-            # so an order placed before this registration loses its attribution
-            # permanently. Registered ahead of db_ready for that reason.
-            # Retried rather than attempted once: the failure that matters here
-            # is a transient one (the DB file briefly unavailable because the
-            # out-of-process websocket proxy holds the write lock), and losing
-            # it means every order placed afterwards is unattributable. Startup
-            # still proceeds if it ultimately fails - a P&L ledger must not keep
-            # the platform from trading - but the book then reports itself
-            # unavailable instead of an innocent zero, so nothing downstream can
-            # mistake it for a flat strategy.
             for _attempt in range(1, 4):
                 try:
                     from database.strategy_book_db import init_strategy_book_db
@@ -836,14 +656,11 @@ def setup_environment(app):
             else:
                 logger.error(
                     "Strategy book unavailable after 3 attempts. Orders will still be "
-                    "placed, but per-strategy P&L will report an error until restart "
-                    "rather than a misleading zero."
+                    "placed, but per-strategy P&L will report an error until restart."
                 )
 
-            # Signal that DB tables are ready (unblocks cache restoration)
-            app.db_ready.set()
+            db_ready_event.set()
 
-            # Initialize schedulers AFTER database initialization
             try:
                 init_python_strategy()
                 logger.debug("Python strategy scheduler initialized")
@@ -890,9 +707,6 @@ def setup_environment(app):
                 logger.error(f"Failed to initialize Historify scheduler: {e}")
 
             try:
-                # Multi-leg options strategies with end-to-end risk management.
-                # Starts its own order-update subscriber, crash recovery, price
-                # feed, checkpoint writer and scheduler, in that order.
                 from services.strategy_module.runtime import start_strategy_module
 
                 start_strategy_module()
@@ -901,9 +715,6 @@ def setup_environment(app):
                 logger.error(f"Failed to initialize Strategy module: {e}")
 
             try:
-                # Server-side scalping SL / target / trailing-stop engine. Runs
-                # browser-independently so stops keep working after the user
-                # leaves /scalping or closes the tab. Idles when no SL is set.
                 from services.scalping_risk_monitor_service import start_scalping_risk_monitor
 
                 start_scalping_risk_monitor()
@@ -911,12 +722,6 @@ def setup_environment(app):
             except Exception as e:
                 logger.error(f"Failed to initialize Scalping risk monitor: {e}")
 
-            # Auto-reconnect the WhatsApp bot if a paired session is persisted.
-            # Without this, every server restart would leave is_ready()=False
-            # and every /notify call would 409 "pair first" — even though the
-            # encrypted session blob is sitting in openalgo.db ready to use.
-            # We do this on a background thread so a slow WhatsApp handshake
-            # never delays the Flask boot.
             def _autostart_whatsapp_bot():
                 try:
                     from database.whatsapp_db import get_bot_config
@@ -933,15 +738,12 @@ def setup_environment(app):
                 except Exception:
                     logger.exception("WhatsApp bot auto-start crashed")
 
-            import threading as _threading
-
-            _threading.Thread(
+            threading.Thread(
                 target=_autostart_whatsapp_bot,
                 daemon=True,
                 name="WhatsAppAutoStart",
             ).start()
 
-            # Auto-start analyzer mode services (depends on DB being ready)
             try:
                 from database.settings_db import get_analyze_mode
 
@@ -997,10 +799,6 @@ def setup_environment(app):
             except Exception as e:
                 logger.error(f"Error checking analyzer mode on startup: {e}")
 
-            # Auto-start Telegram bot if it was active (after DB tables exist).
-            # initialize_bot_sync is the one entry point: which validation path
-            # it takes for this runtime is the service's decision, so this
-            # block no longer inspects the runtime or builds an event loop.
             try:
                 bot_config = get_bot_config()
                 if bot_config.get("is_active") and bot_config.get("bot_token"):
@@ -1023,26 +821,83 @@ def setup_environment(app):
     threading.Thread(target=_init_databases_and_schedulers, daemon=True).start()
 
 
-app = create_app()
+# ============================================================================
+# Auto-login Session Initialization for Shoonya
+# ============================================================================
+def _check_auto_login_session():
+    """Restore persisted Shoonya auto-login session on startup after DB is ready."""
+    try:
+        from utils.config import is_shoonya_autologin_enabled
 
-# Explicitly call the setup environment function
+        if not is_shoonya_autologin_enabled():
+            logger.info("Auto-login check: Shoonya auto-login disabled in .env")
+            return
+
+        db_ready_event: threading.Event | None = getattr(app, "db_ready", None)
+        if db_ready_event is not None and not db_ready_event.wait(timeout=30):
+            logger.warning("Timed out waiting for DB readiness during Shoonya auto-login check")
+            return
+
+        with app.app_context():
+            success = False
+            message = "No active Shoonya auto-login session found"
+            user_id = None
+
+            try:
+                from broker.shoonya.api.auth_api import initialize_session_on_startup
+
+                success, message, user_id = initialize_session_on_startup()
+            except ImportError:
+                from database.auth_db import get_autologin_session
+
+                session_info = get_autologin_session(broker="shoonya")
+                if session_info:
+                    user_id = session_info["name"]
+                    success = True
+                    message = f"Restored Shoonya session from DB for {user_id}"
+
+            if success and user_id:
+                logger.info(f"Auto-login session restored for Shoonya user: {user_id}")
+                try:
+                    from utils.session import get_session_expiry_time
+
+                    app.config["PERMANENT_SESSION_LIFETIME"] = get_session_expiry_time()
+                except ImportError:
+                    from datetime import timedelta
+
+                    app.config["PERMANENT_SESSION_LIFETIME"] = timedelta(hours=24)
+
+                try:
+                    from database.cache_restoration import restore_all_caches
+
+                    restore_all_caches()
+                except Exception as cache_err:
+                    logger.debug(f"Post auto-login cache refresh skipped: {cache_err}")
+            else:
+                logger.info(f"Auto-login check: {message}")
+
+    except Exception as e:
+        logger.exception(f"Error checking Shoonya auto-login session: {e}")
+
+
+app = create_app()
 setup_environment(app)
 
-# Under eventlet, start the green thread that runs calls real OS threads hand
-# to the hub (utils.real_threading.run_on_hub). This runs at import, on the
-# hub's own thread, which is what it must be started from. A no-op under the
-# gthread worker and the dev server, where nothing needs marshalling.
+threading.Thread(
+    target=_check_auto_login_session,
+    daemon=True,
+    name="ShoonyaAutoLoginCheck",
+).start()
+
 from utils.real_threading import start_hub_worker
 
 start_hub_worker()
 
-# Restore caches from database in background (not needed until first trade/lookup)
-import threading
-
 
 def _restore_caches_background():
-    # Wait for DB tables to be created before querying
-    app.db_ready.wait()
+    db_ready_event: threading.Event | None = getattr(app, "db_ready", None)
+    if db_ready_event is not None:
+        db_ready_event.wait()
     with app.app_context():
         try:
             from database.cache_restoration import restore_all_caches
@@ -1063,50 +918,26 @@ def _restore_caches_background():
 threading.Thread(target=_restore_caches_background, daemon=True).start()
 
 
-# Database session cleanup (teardown handler)
 @app.teardown_appcontext
 def shutdown_database_sessions(exception=None):
-    """Remove all scoped sessions after each request to prevent FD leaks.
-
-    The registry lives in utils/db_sessions.py so that background threads,
-    which have no app context and never reach this handler, release exactly
-    the same set.
-    """
+    """Remove all scoped sessions after each request to prevent FD leaks."""
     from utils.db_sessions import remove_all_scoped_sessions
 
     remove_all_scoped_sessions()
 
 
-# Integrate the WebSocket proxy server with the Flask app. Where it runs is
-# decided in one place, websocket_proxy.app_integration.resolve_proxy_mode():
-# a child *process* under gunicorn with either worker (so the proxy's asyncio
-# loop never shares an eventlet hub, issue #1421, and under gthread stays out
-# of the process that places orders), a real OS thread on the dev server, and
-# nothing here under Docker, where start.sh runs it. Under eventlet that is
-# exactly what this block used to decide itself.
 logger.debug("Starting WebSocket proxy")
 start_websocket_proxy(app)
 
-# Under the gthread worker, end Socket.IO sessions as soon as gunicorn starts
-# its graceful stop: each open session holds a worker thread, and a thread
-# still held when the window closes turns the stop into a kill. A no-op under
-# eventlet and on the dev server.
 from utils.shutdown import start_drain_watcher
 
 start_drain_watcher()
 
-# Start Flask development server with SocketIO support if directly executed
 if __name__ == "__main__":
     host_ip = os.getenv("FLASK_HOST_IP", "127.0.0.1")
     port = int(os.getenv("FLASK_PORT", 5000))
     debug = os.getenv("FLASK_DEBUG", "False").lower() in ("true", "1", "t")
 
-    # Refuse to run the Werkzeug debugger on a non-loopback interface.
-    # Werkzeug's interactive debugger is an RCE primitive — exposing it on a
-    # public or LAN address is a critical risk, and a surprisingly common
-    # misconfiguration (FLASK_DEBUG=True left on + FLASK_HOST_IP=0.0.0.0).
-    # Users who explicitly need debug on a trusted LAN can set
-    # FLASK_DEBUG_ALLOW_EXTERNAL=true to opt out of this guard.
     _LOOPBACK_HOSTS = {"127.0.0.1", "localhost", "::1", ""}
     _allow_external_debug = os.getenv("FLASK_DEBUG_ALLOW_EXTERNAL", "False").lower() in (
         "true",
@@ -1122,17 +953,13 @@ if __name__ == "__main__":
             "\033[91m"
             "The Werkzeug interactive debugger is an RCE primitive and must\n"
             "never be reachable from the network. Fix one of the following:\n"
-            "  1. Set FLASK_DEBUG=False in .env (recommended for anything\n"
-            "     beyond local development).\n"
+            "  1. Set FLASK_DEBUG=False in .env.\n"
             "  2. Set FLASK_HOST_IP=127.0.0.1 in .env to bind to loopback.\n"
-            "  3. If you truly need debug on a trusted LAN, set\n"
-            "     FLASK_DEBUG_ALLOW_EXTERNAL=true in .env to override this\n"
-            "     guard. You are responsible for the consequences.\n"
+            "  3. Set FLASK_DEBUG_ALLOW_EXTERNAL=true in .env to override.\n"
             "\033[0m\n"
         )
         sys.exit(1)
 
-    # Start ngrok tunnel if enabled
     should_start_ngrok = True
     if debug:
         should_start_ngrok = os.environ.get("WERKZEUG_RUN_MAIN") == "true"
@@ -1142,7 +969,6 @@ if __name__ == "__main__":
 
         start_ngrok_tunnel(port)
 
-    # Exclude strategies and logs directories from reloader
     reloader_options = {
         "exclude_patterns": [
             "*/strategies/*",
@@ -1151,13 +977,10 @@ if __name__ == "__main__":
             "*.bak",
         ]
     }
-    # Suppress Flask/Werkzeug's default startup banner — our banner replaces it
     import flask.cli
 
     flask.cli.show_server_banner = lambda *_: None
 
-    # Print startup banner NOW — right before the server starts accepting connections.
-    # When the user sees this banner, the portal is ready to load.
     if not debug or os.environ.get("WERKZEUG_RUN_MAIN") == "true":
         from utils.version import get_version as _get_ver
 
@@ -1191,7 +1014,7 @@ if __name__ == "__main__":
         def _vl(t):
             return len(_ae.sub("", t))
 
-        _t = f" OpenAlgo v{_ver} "
+        _t = f" OpenAlgo v{_ver} (Shoonya) "
         _sl = "Your Personal Algo Trading Platform"
         _samps = [
             "",
@@ -1240,14 +1063,6 @@ if __name__ == "__main__":
             flush=True,
         )
 
-    # Ctrl+C must stop every background writer and release this thread's
-    # sessions before the interpreter goes, or the instance keeps writing to
-    # health.db and the next start contends with a live writer rather than a
-    # stale lock (issue #2031). The schedulers count as writers: left running
-    # they keep firing while the interpreter tears down, into thread pools it
-    # has already closed, which is a traceback a tick until the process goes.
-    # Only in the process that actually serves: the reloader parent has none of
-    # this to stop, and under gunicorn this block never runs.
     if not debug or os.environ.get("WERKZEUG_RUN_MAIN") == "true":
         from utils.shutdown import install_signal_handlers
 

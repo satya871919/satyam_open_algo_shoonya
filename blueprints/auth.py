@@ -1013,6 +1013,13 @@ def _touch_session_heartbeat():
 @auth_bp.route("/session-status", methods=["GET"])
 def get_session_status():
     """Return current session status for React SPA."""
+    if session.get("logged_in") and not is_session_valid():
+        logger.info(
+            f"Session status: expired session for user {session.get('user')} - clearing"
+        )
+        revoke_user_tokens(revoke_db_tokens=True)
+        session.clear()
+
     if "user" not in session:
         # Return 200 with authenticated: false instead of 401
         # This prevents unnecessary console errors in the browser

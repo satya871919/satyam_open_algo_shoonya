@@ -79,8 +79,6 @@ MIGRATIONS = [
     ("migrate_contract_value.py", "Contract Value Column for Crypto"),
     ("migrate_market_holidays.py", "2026 Market Holiday Calendar Update"),
     ("migrate_leverage.py", "Leverage Configuration for Crypto"),
-    ("migrate_samco_auth.py", "Samco 2FA Authentication"),
-    ("migrate_zerodha_new_exchanges.py", "Zerodha NCO/GLOBAL_INDEX & GIFTNIFTY Cleanup"),
     ("add_totp_purpose_flags.py", "Per-Purpose 2FA Flags (login/MCP/reset)"),
     ("migrate_gtt_sandbox.py", "Sandbox GTT Support & CAS F&O Close (15:40)"),
     ("migrate_historify_drop_indexes.py", "Historify Unused Index Removal (#1779)"),
@@ -94,7 +92,6 @@ MIGRATIONS = [
     ("migrate_agent_voice_phrase_removal.py", "Agent Voice Approval Phrase Removal"),
     ("migrate_alert_log.py", "Chart Alert Log (/trading alerts history)"),
     ("migrate_qty_freeze_oct_2026.py", "NSE Index Freeze Limits (5 October 2026)"),
-    ("migrate_fyers_daily_usage.py", "Persistent Fyers Daily API Usage"),
 ]
 
 # Legacy migrations historically used non-zero exits for best-effort warnings,
@@ -107,7 +104,6 @@ REQUIRED_MIGRATIONS = frozenset(
         "migrate_strategy_module.py",
         "migrate_strategy_universe_tab.py",
         "migrate_signal_scanner.py",
-        "migrate_fyers_daily_usage.py",
     }
 )
 

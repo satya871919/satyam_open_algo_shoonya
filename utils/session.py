@@ -109,6 +109,20 @@ def _todays_rollover_boundary(now_ist=None):
     return now_ist.replace(hour=hour, minute=minute, second=0, microsecond=0)
 
 
+def get_trading_session_start(now_ist=None):
+    """Return the start of the active trading session (default 03:00 IST).
+
+    Between midnight and SESSION_EXPIRY_TIME, the active trading session is
+    still the one that started at yesterday's rollover boundary.
+    """
+    if now_ist is None:
+        now_ist = datetime.now(pytz.timezone("UTC")).astimezone(pytz.timezone("Asia/Kolkata"))
+    boundary = _todays_rollover_boundary(now_ist)
+    if now_ist < boundary:
+        return boundary - timedelta(days=1)
+    return boundary
+
+
 def get_trading_session_date():
     """Return the current trading session's date as an ISO string (IST).
 

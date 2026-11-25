@@ -165,12 +165,6 @@ def react_broker_totp(broker):
     return serve_react_app()
 
 
-# Samco keeps its own auth form path rather than the generic TOTP one.
-@react_bp.route("/broker/samco/auth", strict_slashes=False)
-def react_broker_samco_auth():
-    return serve_react_app()
-
-
 # Generic per-broker auth form, matching the React "/:broker/auth" route.
 @react_bp.route("/<broker>/auth", strict_slashes=False)
 def react_broker_auth(broker):

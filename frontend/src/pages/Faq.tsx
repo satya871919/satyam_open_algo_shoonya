@@ -36,12 +36,12 @@ const faqData = [
       {
         question: 'What is SP Trading?',
         answer:
-          'SP Trading is a customized build based on the OpenAlgo open-source algorithmic trading platform. It provides a unified API layer across 36 broker plugins: 35 securities integrations and Delta Exchange for crypto derivatives. It enables seamless integration with TradingView, Amibroker, Excel, Python, and AI agents, allowing traders to automate their trading strategies without being locked into a single broker.',
+          'SP Trading is a customized Shoonya (Finvasia) build based on the OpenAlgo open-source algorithmic trading platform. It enables seamless integration with TradingView, Amibroker, Excel, Python, and AI agents for automated trading.',
       },
       {
         question: 'Which brokers are supported?',
         answer:
-          'SP Trading supports 36 broker plugins: 5 Paisa, 5 Paisa (XTS), Alice Blue, Angel One, Arrow, CompositEdge, Definedge, Delta Exchange, Dhan, Dhan (Sandbox), Firstock, Flattrade, Fyers, Groww, HDFC Securities, HDFC Sky, Ibulls, IIFL, IIFL Capital, IndMoney, JainamXts, Kotak Securities, Motilal Oswal, mStock by Mirae Asset, Nubra, Paytm Money, Pocketful, RMoney, Samco, Shoonya (Finvasia), TradeSmart, Tradejini, Upstox, Wisdom Capital, Zebu and Zerodha. Delta Exchange is a crypto exchange; the rest are Indian brokers. New brokers are being added regularly.',
+          'This build is dedicated exclusively to Shoonya (Finvasia), with all unused broker plugins removed for speed and simplicity.',
       },
       {
         question: 'What are the system requirements?',

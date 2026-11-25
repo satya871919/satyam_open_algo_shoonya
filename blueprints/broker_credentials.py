@@ -33,16 +33,11 @@ def mask_secret(value: str, show_chars: int = 4) -> str:
     """Mask a secret value, showing only the first few characters.
 
     Returns a FIXED-length output (``prefix + '*' * 8``) regardless of the
-    original secret's length. This intentionally hides the secret's true
-    length so an over-the-shoulder viewer (or a screenshot) cannot infer
-    "this is a 64-char Zerodha API secret" vs "this is a 32-char Fyers
-    secret" from the asterisk count.
+    original secret's length so an over-the-shoulder viewer cannot infer the
+    secret's true length from the asterisk count.
 
     The fixed-length mask also keeps the rendered value bounded so a long
-    secret (some brokers issue 80+ char tokens) cannot overflow the
-    Profile UI's column layout — the bug originally reported in the
-    Current Configuration card where the asterisks ran past the right
-    edge of the card.
+    secret cannot overflow the Profile UI's column layout.
 
     For empty values, returns "" so the frontend can detect "not set" and
     show its placeholder copy.
@@ -181,31 +176,13 @@ def update_credentials():
                     }
                 ), 400
 
-            # Validate broker-specific API key formats
-            if broker_name == "fivepaisa" and broker_api_key:
-                if ":::" not in broker_api_key or broker_api_key.count(":::") != 2:
-                    return jsonify(
-                        {
-                            "status": "error",
-                            "message": "5paisa API key must be in format: 'User_Key:::User_ID:::client_id'",
-                        }
-                    ), 400
-
-            elif broker_name == "flattrade" and broker_api_key:
+            # Validate Shoonya API key format
+            if broker_name == "shoonya" and broker_api_key:
                 if ":::" not in broker_api_key or broker_api_key.count(":::") != 1:
                     return jsonify(
                         {
                             "status": "error",
-                            "message": "Flattrade API key must be in format: 'client_id:::api_key'",
-                        }
-                    ), 400
-
-            elif broker_name == "dhan" and broker_api_key:
-                if ":::" not in broker_api_key or broker_api_key.count(":::") != 1:
-                    return jsonify(
-                        {
-                            "status": "error",
-                            "message": "Dhan API key must be in format: 'client_id:::api_key'",
+                            "message": "Shoonya API key must be in format: 'userid:::client_id'",
                         }
                     ), 400
 

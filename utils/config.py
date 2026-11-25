@@ -58,6 +58,19 @@ def get_host_server() -> str:
     return os.getenv("HOST_SERVER", "http://127.0.0.1:5000")
 
 
+def is_shoonya_autologin_enabled() -> bool:
+    """Return True if Shoonya same-day auto-login session persistence is enabled.
+
+    Checks ``SHOONYA_AUTOLOGIN`` first (matching ``.env`` / ``.sample.env``) and
+    falls back to ``AUTO_LOGIN`` for backward compatibility. Defaults to True
+    when neither variable is set.
+    """
+    raw = os.getenv("SHOONYA_AUTOLOGIN")
+    if raw is None or not raw.strip():
+        raw = os.getenv("AUTO_LOGIN", "TRUE")
+    return raw.strip().lower() in ("true", "1", "t", "yes")
+
+
 def build_external_url(path: str) -> str:
     """
     Build an absolute URL for an outbound link, rooted at the configured HOST_SERVER.

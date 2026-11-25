@@ -1081,7 +1081,7 @@ export default function ProfilePage() {
               <div className="pt-4 border-t">
                 <h4 className="font-medium mb-3">Market Data API (Optional)</h4>
                 <p className="text-sm text-muted-foreground mb-4">
-                  Required only for XTS API supported brokers (e.g., 5paisa XTS, Jainam XTS)
+                  Optional market data API credentials (not required for Shoonya)
                 </p>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
@@ -1105,48 +1105,13 @@ export default function ProfilePage() {
                 </div>
               </div>
 
-              {/* Broker-specific hints */}
-              {selectedBroker === 'fivepaisa' && (
+              {/* Shoonya-specific hint */}
+              {selectedBroker === 'shoonya' && (
                 <Alert className="bg-blue-50 dark:bg-blue-950 border-blue-200">
                   <AlertCircle className="h-4 w-4" />
-                  <AlertTitle>5paisa API Key Format</AlertTitle>
+                  <AlertTitle>Shoonya API Key Format</AlertTitle>
                   <AlertDescription>
-                    Format: <code>User_Key:::User_ID:::client_id</code>
-                  </AlertDescription>
-                </Alert>
-              )}
-              {selectedBroker === 'flattrade' && (
-                <Alert className="bg-blue-50 dark:bg-blue-950 border-blue-200">
-                  <AlertCircle className="h-4 w-4" />
-                  <AlertTitle>Flattrade API Key Format</AlertTitle>
-                  <AlertDescription>
-                    Format: <code>client_id:::api_key</code>
-                  </AlertDescription>
-                </Alert>
-              )}
-              {selectedBroker === 'dhan' && (
-                <Alert className="bg-blue-50 dark:bg-blue-950 border-blue-200">
-                  <AlertCircle className="h-4 w-4" />
-                  <AlertTitle>Dhan API Key Format</AlertTitle>
-                  <AlertDescription>
-                    Format: <code>client_id:::api_key</code>
-                  </AlertDescription>
-                </Alert>
-              )}
-              {selectedBroker === 'indmoney' && (
-                <Alert className="bg-blue-50 dark:bg-blue-950 border-blue-200">
-                  <AlertCircle className="h-4 w-4" />
-                  <AlertTitle>IndMoney Credentials</AlertTitle>
-                  <AlertDescription>
-                    <p>
-                      <strong>API Key</strong>: the <code>Client ID</code> shown at indstocks.com
-                      &gt; API Trading &gt; Access Tokens after you set up TOTP.
-                    </p>
-                    <p className="mt-1">
-                      <strong>API Secret</strong>: leave blank to log in with MPIN + TOTP
-                      (recommended). If you paste an access token here instead, it is used as-is and
-                      the TOTP flow is skipped - you must regenerate it every 24 hours.
-                    </p>
+                    Format: <code>userid:::client_id</code>
                   </AlertDescription>
                 </Alert>
               )}

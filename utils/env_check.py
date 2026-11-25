@@ -1308,43 +1308,15 @@ def load_and_check_env_variables() -> None:
     except Exception:
         pass
 
-    # Validate 5paisa API key format
-    if broker_name == "fivepaisa":
-        if ":::" not in broker_api_key or broker_api_key.count(":::") != 2:
-            print("\nError: Invalid 5paisa API key format detected!")
-            print("The BROKER_API_KEY for 5paisa must be in the format:")
-            print("  BROKER_API_KEY = 'User_Key:::User_ID:::client_id'")
-            print("\nExample:")
-            print("  BROKER_API_KEY = 'abc123xyz:::12345678:::5P12345678'")
-            print("  BROKER_API_SECRET = 'your_encryption_key'")
-            print("\nFor detailed instructions, please refer to:")
-            print("  https://docs.openalgo.in/connect-brokers/brokers/5paisa")
-            sys.exit(1)
-
-    # Validate flattrade API key format
-    elif broker_name == "flattrade":
+    # Validate Shoonya API key format
+    if broker_name == "shoonya":
         if ":::" not in broker_api_key or broker_api_key.count(":::") != 1:
-            print("\nError: Invalid Flattrade API key format detected!")
-            print("The BROKER_API_KEY for Flattrade must be in the format:")
-            print("  BROKER_API_KEY = 'client_id:::api_key'")
+            print("\nError: Invalid Shoonya API key format detected!")
+            print("The BROKER_API_KEY for Shoonya must be in the format:")
+            print("  BROKER_API_KEY = 'userid:::client_id'")
             print("\nExample:")
-            print("  BROKER_API_KEY = 'FT123456:::your_api_key_here'")
+            print("  BROKER_API_KEY = 'FA233802:::your_client_id'")
             print("  BROKER_API_SECRET = 'your_api_secret'")
-            print("\nFor detailed instructions, please refer to:")
-            print("  https://docs.openalgo.in/connect-brokers/brokers/flattrade")
-            sys.exit(1)
-
-    # Validate dhan API key format
-    elif broker_name == "dhan":
-        if ":::" not in broker_api_key or broker_api_key.count(":::") != 1:
-            print("\nError: Invalid Dhan API key format detected!")
-            print("The BROKER_API_KEY for Dhan must be in the format:")
-            print("  BROKER_API_KEY = 'client_id:::api_key'")
-            print("\nExample:")
-            print("  BROKER_API_KEY = '1234567890:::your_dhan_apikey'")
-            print("  BROKER_API_SECRET = 'your_dhan_apisecret'")
-            print("\nFor detailed instructions, please refer to:")
-            print("  https://docs.openalgo.in/connect-brokers/brokers/dhan")
             sys.exit(1)
 
     # Validate environment variable values
@@ -1390,17 +1362,17 @@ def load_and_check_env_variables() -> None:
         print("1. Open your .env file")
         print("2. Change the REDIRECT_URL to use your specific broker")
         print("3. Save the file")
-        print("\nExample: If using Zerodha, change:")
+        print("\nExample: For Shoonya, change:")
         print(f"  REDIRECT_URL = '{default_value}'")
         print("to:")
-        print("  REDIRECT_URL = 'http://127.0.0.1:5000/zerodha/callback'")
+        print("  REDIRECT_URL = 'http://127.0.0.1:5000/shoonya/callback'")
         sys.exit(1)
 
     if "<broker>" in redirect_url:
         print("\nError: Invalid REDIRECT_URL configuration detected.")
         print("The application cannot start with '<broker>' in REDIRECT_URL.")
-        print("\nPlease update your .env file to use your specific broker name.")
-        print("Example: http://127.0.0.1:5000/zerodha/callback")
+        print("\nPlease update your .env file to use 'shoonya'.")
+        print("Example: http://127.0.0.1:5000/shoonya/callback")
         sys.exit(1)
 
     # Validate broker name
@@ -1420,7 +1392,7 @@ def load_and_check_env_variables() -> None:
         if not match:
             print("\nError: Invalid REDIRECT_URL format.")
             print("The URL must end with '/broker_name/callback'")
-            print("Example: http://127.0.0.1:5000/zerodha/callback")
+            print("Example: http://127.0.0.1:5000/shoonya/callback")
             sys.exit(1)
 
         broker_name = match.group(1).lower()
@@ -1435,7 +1407,7 @@ def load_and_check_env_variables() -> None:
         print("\nError: Could not validate REDIRECT_URL format.")
         print(f"Details: {str(e)}")
         print("\nThe URL must follow the format: http://domain/broker_name/callback")
-        print("Example: http://127.0.0.1:5000/zerodha/callback")
+        print("Example: http://127.0.0.1:5000/shoonya/callback")
         sys.exit(1)
 
     # Validate rate limits format
