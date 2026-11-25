@@ -622,7 +622,7 @@ export function OptionChainPanel({ apiKey, onPick, activeSymbol }: Props) {
             return (
               <div
                 key={row.strike}
-                className={cn(ROW_GRID, 'items-stretch border-b border-border/40 text-[12px]')}
+                className={cn(ROW_GRID, 'min-h-[42px] items-stretch border-b border-border/40 text-[12px] md:min-h-0')}
               >
                 {/* Both values sit against the strike and both OI bars grow
                     away from it. Anchoring them to the panel's outer edges

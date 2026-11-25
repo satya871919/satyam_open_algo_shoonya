@@ -154,7 +154,7 @@ export function PanelShell({
     <aside
       id={id}
       aria-label={label}
-      className="relative flex shrink-0 flex-col overflow-hidden border-l bg-background pt-2"
+      className="relative flex shrink-0 flex-col overflow-hidden border-l bg-background pt-2 max-md:!w-full max-md:flex-1 max-md:border-l-0 max-md:pt-0"
       style={{ width }}
     >
       {/* The drag handle: a hairline that only announces itself on approach.
@@ -183,7 +183,7 @@ export function PanelShell({
         onKeyUp={() => persist(widthRef.current)}
         onBlur={() => persist(widthRef.current)}
         className={cn(
-          'absolute inset-y-0 left-0 z-20 w-1 cursor-col-resize transition-colors hover:bg-primary/40 focus-visible:outline-none focus-visible:bg-primary/60',
+          'absolute inset-y-0 left-0 z-20 hidden w-1 cursor-col-resize transition-colors hover:bg-primary/40 focus-visible:outline-none focus-visible:bg-primary/60 md:block',
           dragging && 'bg-primary/60'
         )}
       />

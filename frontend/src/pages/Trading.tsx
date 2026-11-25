@@ -1,4 +1,13 @@
-import { LayoutGrid, Link2 as LinkIcon } from 'lucide-react'
+import {
+  Briefcase,
+  CandlestickChart,
+  Layers,
+  LayoutGrid,
+  Link2 as LinkIcon,
+  List,
+  PenTool,
+  X,
+} from 'lucide-react'
 import { type ChartObjects, createLinkGroup, type LinkGroup } from 'openalgo-charts'
 import type { WorkspaceDocument, WorkspacePayload } from 'openalgo-charts/workspace'
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
@@ -290,7 +299,11 @@ function TradingWorkspace({ account }: { account: string | null }) {
   // mounted while folded, so the armed tool, the drawings and the chords carry
   // on; a tool armed by its chord does not unfold it. The chart's right-click
   // "Hide drawing tools" folds it the same way.
-  const [showRail, setShowRail] = useState(readRailShown)
+  const [showRail, setShowRail] = useState(() =>
+    typeof window !== 'undefined' && window.matchMedia('(max-width: 767px)').matches
+      ? false
+      : readRailShown()
+  )
   useEffect(() => {
     try {
       localStorage.setItem(RAIL_FOLDED_KEY, showRail ? '0' : '1')
@@ -304,7 +317,20 @@ function TradingWorkspace({ account }: { account: string | null }) {
   const activeRef = useRef<TradingTerminal | null>(null)
 
   /* ── side panels ─────────────────────────────────────────────────────── */
+  const [isMobile, setIsMobile] = useState(() =>
+    typeof window !== 'undefined' ? window.matchMedia('(max-width: 767px)').matches : false
+  )
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const mq = window.matchMedia('(max-width: 767px)')
+    const onChange = () => setIsMobile(mq.matches)
+    mq.addEventListener('change', onChange)
+    return () => mq.removeEventListener('change', onChange)
+  }, [])
   const [panel, setPanel] = useState<PanelId | null>(() => {
+    if (typeof window !== 'undefined' && window.matchMedia('(max-width: 767px)').matches) {
+      return null
+    }
     const saved = localStorage.getItem(PANEL_KEY)
     // Checked against the rail's own list rather than a second copy of it, so
     // a panel added or renamed there cannot leave this reading a stale name.
@@ -629,8 +655,9 @@ function TradingWorkspace({ account }: { account: string | null }) {
     (row: SearchRow) => {
       stopWorkspaceReplay()
       void panelTarget()?.loadSymbol(row)
+      if (isMobile) setPanel(null)
     },
-    [panelTarget, stopWorkspaceReplay]
+    [isMobile, panelTarget, stopWorkspaceReplay]
   )
 
   /**
@@ -1478,7 +1505,12 @@ function TradingWorkspace({ account }: { account: string | null }) {
 
   return (
     <ChartOrderBridgeContext.Provider value={orderBridge}>
-      <div className="flex flex-1 flex-col overflow-hidden">
+      <div
+        className={cn(
+          'flex flex-1 flex-col overflow-hidden overscroll-none',
+          isMobile && 'fixed inset-0 h-[100dvh] w-screen'
+        )}
+      >
         {/* Rail + grid */}
         <div aria-live="polite">
           {autosave.error && (
@@ -1530,34 +1562,43 @@ function TradingWorkspace({ account }: { account: string | null }) {
           </div>
         </div>
         <main className="flex min-h-0 flex-1" inert={workspace.pending ? true : undefined}>
-          {apiKey && wsUrl && (
-            <DrawingRail
-              folded={!showRail}
-              onFold={() => setShowRail(false)}
-              stats={railStats}
-              latched={latched}
-              onPick={pickTool}
-              onUndo={() => act((t) => t.historyPress('undo'))}
-              onRedo={() => act((t) => t.historyPress('redo'))}
-              onDeleteSelected={() => act((t) => t.removeDrawings(false))}
-              onRemoveAll={() => act((t) => t.requestRemoveAllDrawings())}
-              onSelectAll={() => act((t) => t.selectAllDrawings())}
-              onHideSelected={() => act((t) => t.hideSelectedDrawings())}
-              onLockSelected={() => act((t) => t.styleSelectedDrawing({ locked: true }))}
-              onMagnet={(v) => {
-                setMagnet(v)
-                if (visibleGrid.current)
-                  for (const terminal of visibleGrid.current.terminals.values())
-                    terminal.setMagnet(v)
-              }}
-              onStay={(v) => {
-                setStay(v)
-                if (visibleGrid.current)
-                  for (const terminal of visibleGrid.current.terminals.values())
-                    terminal.setDrawStay(v)
-              }}
-              onShortcut={onDrawKey}
-            />
+          {apiKey && wsUrl && (!isMobile || showRail) && (
+            <div
+              className={cn(
+                isMobile ? 'fixed bottom-12 left-0 top-10 z-40 flex bg-card shadow-xl' : 'contents'
+              )}
+            >
+              <DrawingRail
+                folded={!showRail}
+                onFold={() => setShowRail(false)}
+                stats={railStats}
+                latched={latched}
+                onPick={(t) => {
+                  pickTool(t)
+                  if (isMobile) setShowRail(false)
+                }}
+                onUndo={() => act((t) => t.historyPress('undo'))}
+                onRedo={() => act((t) => t.historyPress('redo'))}
+                onDeleteSelected={() => act((t) => t.removeDrawings(false))}
+                onRemoveAll={() => act((t) => t.requestRemoveAllDrawings())}
+                onSelectAll={() => act((t) => t.selectAllDrawings())}
+                onHideSelected={() => act((t) => t.hideSelectedDrawings())}
+                onLockSelected={() => act((t) => t.styleSelectedDrawing({ locked: true }))}
+                onMagnet={(v) => {
+                  setMagnet(v)
+                  if (visibleGrid.current)
+                    for (const terminal of visibleGrid.current.terminals.values())
+                      terminal.setMagnet(v)
+                }}
+                onStay={(v) => {
+                  setStay(v)
+                  if (visibleGrid.current)
+                    for (const terminal of visibleGrid.current.terminals.values())
+                      terminal.setDrawStay(v)
+                }}
+                onShortcut={onDrawKey}
+              />
+            </div>
           )}
           <div className="relative min-h-0 min-w-0 flex-1">
             {noApiKey ? (
@@ -1571,14 +1612,20 @@ function TradingWorkspace({ account }: { account: string | null }) {
               <div className="relative h-full">
                 {/* The grid stops above the bottom bar's strip, kept clear from
                     the first render so nothing moves when the bar arrives. */}
-                {!showRail && (
+                {!showRail && !isMobile && (
                   <DrawingRailTab onUnfold={() => setShowRail(true)} bottom={RAIL_TAB_BOTTOM} />
                 )}
-                <div className="absolute inset-x-0 top-0" style={{ bottom: BOTTOM_BAR_PX }}>
+                <div
+                  className="absolute inset-x-0 top-0"
+                  style={{ bottom: isMobile ? 0 : BOTTOM_BAR_PX }}
+                >
                   {!workspace.current && (
                     <div
                       key="unnamed"
-                      className="grid h-full min-h-0 gap-2 p-2"
+                      className={cn(
+                        'grid h-full min-h-0',
+                        isMobile ? 'gap-0 p-0' : 'gap-2 p-2'
+                      )}
                       style={{
                         gridTemplateColumns: sizedLayout.cols,
                         gridTemplateRows: sizedLayout.rows,
@@ -1706,16 +1753,18 @@ function TradingWorkspace({ account }: { account: string | null }) {
                     }
                   />
                 </div>
-                <ChartBottomBar
-                  pane={panelTarget}
-                  panes={() =>
-                    Object.values(terminalsRef.current).filter(
-                      (terminal): terminal is TradingTerminal => terminal !== null
-                    )
-                  }
-                  focusKey={focusedPane}
-                  control={bottomBar}
-                />
+                {!isMobile && (
+                  <ChartBottomBar
+                    pane={panelTarget}
+                    panes={() =>
+                      Object.values(terminalsRef.current).filter(
+                        (terminal): terminal is TradingTerminal => terminal !== null
+                      )
+                    }
+                    focusKey={focusedPane}
+                    control={bottomBar}
+                  />
+                )}
               </div>
             ) : (
               <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
@@ -1725,170 +1774,264 @@ function TradingWorkspace({ account }: { account: string | null }) {
           </div>
 
           {/* Side panels, between the grid and the rail that toggles them.
-              Both are page-level: they act on the focused pane rather than
-              belonging to one, so repeating them per pane would be wrong. */}
-          {apiKey && wsUrl && panel === 'watchlist' && (
-            <Suspense fallback={null}>
-              <WatchlistPanel
-                apiKey={apiKey}
-                onPick={sendToFocusedPane}
-                search={searchFromFocusedPane}
-                activeSymbol={paneSymbols[focusedPane] ?? null}
-              />
-            </Suspense>
-          )}
-          {apiKey && wsUrl && panel === 'options' && (
-            <Suspense fallback={null}>
-              <OptionChainPanel
-                apiKey={apiKey}
-                onPick={sendToFocusedPane}
-                activeSymbol={paneSymbols[focusedPane] ?? null}
-              />
-            </Suspense>
-          )}
-          {apiKey && wsUrl && panel === 'agent' && (
-            <Suspense fallback={null}>
-              <AgentPanel
-                getChartContext={readChartContext}
-                onChartCommand={applyChartCommands}
-                onCaptureChart={captureChart}
-              />
-            </Suspense>
-          )}
-          {apiKey && wsUrl && panel === 'alerts' && (
-            <Suspense fallback={null}>
-              <AlertsPanel
-                view={paneAlerts[alertsPaneId] ?? null}
-                log={alertLog}
-                paneLabel={alertsPaneLabel}
-                onEdit={openAlertEditor}
-                onClearLog={clearAlertLog}
-                revision={alertRevision}
-              />
-            </Suspense>
-          )}
-          {apiKey && wsUrl && panel === 'objects' && (
-            <ObjectsPanel model={paneObjects[objectsPaneId] ?? null} paneLabel={objectsPaneLabel} />
-          )}
-          {apiKey && wsUrl && panel === 'data' && (
-            <Suspense fallback={null}>
-              {/* Same pane rule as Objects. A pane builds a new chart and a new
-                  inventory together, so the inventory changing is what brings
-                  the panel onto the new chart. */}
-              <DataWindowPanel
-                chart={
-                  paneObjects[objectsPaneId]
-                    ? (terminalsRef.current[objectsPaneId]?.liveChart() ?? null)
-                    : null
-                }
-                paneLabel={objectsPaneLabel}
-              />
-            </Suspense>
-          )}
-          {apiKey && wsUrl && panel === 'strategies' && (
-            <Suspense fallback={null}>
-              <StrategiesPanel getChartContext={readChartContext} />
-            </Suspense>
-          )}
-          {apiKey && wsUrl && panel === 'backtest' && (
-            <BacktestPanel
-              apiKey={apiKey}
-              // The same reader the assistant uses, for the same reason: a run
-              // is of the instrument and interval on the chart at the moment
-              // Run is pressed, not of whatever this page last rendered with.
-              getChartContext={readChartContext}
-              // Bumped when the focused pane, its instrument or its timeframe
-              // changes, so the panel re-reads the chart when there is something
-              // new to read rather than asking it every second.
-              chartRevision={chartRevision}
-              // The same pane helper every panel uses: the focused one, else any
-              // that is up. A run marks the chart it was a run of.
-              onMarkChart={(markers, owner) => {
-                // The marks live on one chart. Clearing (an empty list) goes to
-                // that chart, wherever focus has moved since; a new run on
-                // another chart takes the old marks down first, so none are
-                // left behind with nothing pointing at them.
-                const marked = backtestMarked.current
-                const target = markers.length > 0 ? panelTarget() : (marked ?? panelTarget())
-                if (marked && marked !== target) marked.setBacktestMarkers([])
-                const ok =
-                  target?.setBacktestMarkers(
-                    markers as never,
-                    owner
-                      ? { indicatorId: idForScript(owner.file), onCleared: owner.onCleared }
-                      : null
-                  ) ?? false
-                backtestMarked.current = ok && markers.length > 0 ? target : null
-                return ok
-              }}
-              runFile={backtestFile}
-              onRan={() => setBacktestFile(null)}
-            />
-          )}
-          {apiKey && wsUrl && panel === 'scripts' && (
-            <Suspense fallback={null}>
-              <ScriptPanel
-                // `panelTarget`, not `act`. Both reach a chart, but `act` wants
-                // the pane a toolbar button was pressed over and answers null
-                // until one has been focused, so adding a study did nothing at
-                // all until the trader happened to click the chart first. This is
-                // the helper written for a panel: the focused pane, else any pane
-                // that is up. It is the same one the watchlist and the assistant
-                // use for the same reason.
-                onAddToChart={(indicatorId) => {
-                  const target = panelTarget()
-                  if (!target) return false
-                  void target.addIndicatorById(indicatorId)
-                  return true
-                }}
-                openFile={scriptSource}
-                onOpened={() => setScriptSource(null)}
-                // **Applying a strategy does both halves, because it is one act.**
-                //
-                // A strategy has two things to show and they used to arrive by
-                // different doors. Adding it from the indicator list drew its
-                // plots and gave it a legend row and a settings dialog, and drew
-                // no trades. Applying it from the editor marked every entry and
-                // exit on the price, and drew no lines and no legend, so there
-                // was nothing on the chart to open settings on or to remove. A
-                // trader wanting both had to do both, and had no way of knowing
-                // that.
-                //
-                // So this adds it to the chart and runs it. The study is what
-                // carries the name, the band and the settings; the run is what
-                // knows the trades, because an order is not a marker the language
-                // declares and only the report has them.
-                onBacktest={(file) => {
-                  const pane = panelTarget()
-                  if (!pane) return false
-                  // The plots first, so the legend is there while the run works.
-                  // A strategy that will not register is not a reason to refuse
-                  // the run: the marks are the half a trader asked for by name.
-                  void pane.addIndicatorById(idForScript(file))
-                  setBacktestFile(file)
-                  setPanel('backtest')
-                  return true
-                }}
-              />
-            </Suspense>
+              On mobile (<768px), an open panel renders as a full-width overlay
+              sheet above the mobile bottom bar so the chart isn't crushed. */}
+          {apiKey && wsUrl && panel !== null && (
+            <div
+              className={cn(
+                isMobile
+                  ? 'fixed inset-x-0 bottom-12 top-10 z-40 flex flex-col bg-background'
+                  : 'contents'
+              )}
+            >
+              {isMobile && (
+                <div className="flex h-10 shrink-0 items-center justify-between border-b bg-card px-3">
+                  <span className="text-xs font-semibold uppercase tracking-wide text-foreground">
+                    {panel}
+                  </span>
+                  <button
+                    type="button"
+                    aria-label="Close panel"
+                    onClick={() => setPanel(null)}
+                    className="rounded p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+              )}
+              <div className={cn(isMobile ? 'min-h-0 flex-1 overflow-auto' : 'contents')}>
+                {panel === 'watchlist' && (
+                  <Suspense fallback={null}>
+                    <WatchlistPanel
+                      apiKey={apiKey}
+                      onPick={sendToFocusedPane}
+                      search={searchFromFocusedPane}
+                      activeSymbol={paneSymbols[focusedPane] ?? null}
+                    />
+                  </Suspense>
+                )}
+                {panel === 'options' && (
+                  <Suspense fallback={null}>
+                    <OptionChainPanel
+                      apiKey={apiKey}
+                      onPick={sendToFocusedPane}
+                      activeSymbol={paneSymbols[focusedPane] ?? null}
+                    />
+                  </Suspense>
+                )}
+                {panel === 'agent' && (
+                  <Suspense fallback={null}>
+                    <AgentPanel
+                      getChartContext={readChartContext}
+                      onChartCommand={applyChartCommands}
+                      onCaptureChart={captureChart}
+                    />
+                  </Suspense>
+                )}
+                {panel === 'alerts' && (
+                  <Suspense fallback={null}>
+                    <AlertsPanel
+                      view={paneAlerts[alertsPaneId] ?? null}
+                      log={alertLog}
+                      paneLabel={alertsPaneLabel}
+                      onEdit={openAlertEditor}
+                      onClearLog={clearAlertLog}
+                      revision={alertRevision}
+                    />
+                  </Suspense>
+                )}
+                {panel === 'objects' && (
+                  <ObjectsPanel
+                    model={paneObjects[objectsPaneId] ?? null}
+                    paneLabel={objectsPaneLabel}
+                  />
+                )}
+                {panel === 'data' && (
+                  <Suspense fallback={null}>
+                    <DataWindowPanel
+                      chart={
+                        paneObjects[objectsPaneId]
+                          ? (terminalsRef.current[objectsPaneId]?.liveChart() ?? null)
+                          : null
+                      }
+                      paneLabel={objectsPaneLabel}
+                    />
+                  </Suspense>
+                )}
+                {panel === 'strategies' && (
+                  <Suspense fallback={null}>
+                    <StrategiesPanel getChartContext={readChartContext} />
+                  </Suspense>
+                )}
+                {panel === 'backtest' && (
+                  <BacktestPanel
+                    apiKey={apiKey}
+                    getChartContext={readChartContext}
+                    chartRevision={chartRevision}
+                    onMarkChart={(markers, owner) => {
+                      const marked = backtestMarked.current
+                      const target = markers.length > 0 ? panelTarget() : (marked ?? panelTarget())
+                      if (marked && marked !== target) marked.setBacktestMarkers([])
+                      const ok =
+                        target?.setBacktestMarkers(
+                          markers as never,
+                          owner
+                            ? { indicatorId: idForScript(owner.file), onCleared: owner.onCleared }
+                            : null
+                        ) ?? false
+                      backtestMarked.current = ok && markers.length > 0 ? target : null
+                      return ok
+                    }}
+                    runFile={backtestFile}
+                    onRan={() => setBacktestFile(null)}
+                  />
+                )}
+                {panel === 'scripts' && (
+                  <Suspense fallback={null}>
+                    <ScriptPanel
+                      onAddToChart={(indicatorId) => {
+                        const target = panelTarget()
+                        if (!target) return false
+                        void target.addIndicatorById(indicatorId)
+                        return true
+                      }}
+                      openFile={scriptSource}
+                      onOpened={() => setScriptSource(null)}
+                      onBacktest={(file) => {
+                        const pane = panelTarget()
+                        if (!pane) return false
+                        void pane.addIndicatorById(idForScript(file))
+                        setBacktestFile(file)
+                        setPanel('backtest')
+                        return true
+                      }}
+                    />
+                  </Suspense>
+                )}
+              </div>
+            </div>
           )}
 
-          {apiKey && wsUrl && <RightRail active={panel} onSelect={setPanel} />}
+          {!isMobile && apiKey && wsUrl && <RightRail active={panel} onSelect={setPanel} />}
         </main>
 
         {/* The bottom dock: orders, positions and trades across every symbol.
-            Under the rails and the side panel, full width, because the books
-            are the workspace's and not one pane's. */}
-        {apiKey && wsUrl && (
-          <TradingDock
-            tab={dock}
-            onTabChange={setDock}
-            apiKey={apiKey}
-            onPick={sendToFocusedPane}
-            activeSymbol={paneSymbols[focusedPane] ?? null}
-            tradingLocked={tradingLocked}
-            bridge={orderBridge}
-          />
+            On mobile when open, renders as a clean full-height sheet above the mobile nav. */}
+        {apiKey && wsUrl && (!isMobile || dock !== null) && (
+          <div
+            className={cn(
+              isMobile
+                ? 'fixed inset-x-0 bottom-12 top-10 z-40 flex flex-col bg-background'
+                : 'contents'
+            )}
+          >
+            {isMobile && (
+              <div className="flex h-10 shrink-0 items-center justify-between border-b bg-card px-3">
+                <span className="text-xs font-semibold uppercase tracking-wide text-foreground">
+                  Orders &amp; Positions
+                </span>
+                <button
+                  type="button"
+                  aria-label="Close orders"
+                  onClick={() => setDock(null)}
+                  className="rounded p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+            )}
+            <div className={cn(isMobile ? 'min-h-0 flex-1 overflow-auto' : 'contents')}>
+              <TradingDock
+                tab={dock}
+                onTabChange={setDock}
+                apiKey={apiKey}
+                onPick={sendToFocusedPane}
+                activeSymbol={paneSymbols[focusedPane] ?? null}
+                tradingLocked={tradingLocked}
+                bridge={orderBridge}
+              />
+            </div>
+          </div>
+        )}
+
+        {/* Mobile bottom navigation bar (TradingView / Kite style on phones <768px) */}
+        {isMobile && apiKey && wsUrl && (
+          <nav
+            aria-label="Mobile trading navigation"
+            className="grid h-12 shrink-0 grid-cols-5 border-t bg-card text-[10px] font-medium"
+          >
+            <button
+              type="button"
+              onClick={() => {
+                setPanel(null)
+                setDock(null)
+              }}
+              className={cn(
+                'flex flex-col items-center justify-center gap-0.5',
+                panel === null && dock === null ? 'text-primary' : 'text-muted-foreground'
+              )}
+            >
+              <CandlestickChart className="h-4 w-4" />
+              <span>Chart</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setDock(null)
+                setPanel((p) => (p === 'watchlist' ? null : 'watchlist'))
+              }}
+              className={cn(
+                'flex flex-col items-center justify-center gap-0.5',
+                panel === 'watchlist' ? 'text-primary' : 'text-muted-foreground'
+              )}
+            >
+              <List className="h-4 w-4" />
+              <span>Watchlist</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setDock(null)
+                setPanel((p) => (p === 'options' ? null : 'options'))
+              }}
+              className={cn(
+                'flex flex-col items-center justify-center gap-0.5',
+                panel === 'options' ? 'text-primary' : 'text-muted-foreground'
+              )}
+            >
+              <Layers className="h-4 w-4" />
+              <span>Options</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setPanel(null)
+                setDock((d) => (d === null ? 'positions' : null))
+              }}
+              className={cn(
+                'flex flex-col items-center justify-center gap-0.5',
+                dock !== null ? 'text-primary' : 'text-muted-foreground'
+              )}
+            >
+              <Briefcase className="h-4 w-4" />
+              <span>Orders</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setPanel(null)
+                setDock(null)
+                setShowRail((v) => !v)
+              }}
+              className={cn(
+                'flex flex-col items-center justify-center gap-0.5',
+                showRail ? 'text-primary' : 'text-muted-foreground'
+              )}
+            >
+              <PenTool className="h-4 w-4" />
+              <span>Draw</span>
+            </button>
+          </nav>
         )}
       </div>
     </ChartOrderBridgeContext.Provider>

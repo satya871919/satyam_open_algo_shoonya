@@ -1680,15 +1680,15 @@ export function ChartPane({
             />
           </Suspense>
         )}
-        <div className="pointer-events-none absolute left-3 top-1.5 z-10 flex flex-col gap-0.5">
-          <div ref={legendRef} className="text-xs font-medium text-foreground" />
+        <div className="pointer-events-none absolute left-2 right-2 top-1 z-10 flex flex-col gap-0.5 sm:left-3 sm:right-auto sm:top-1.5">
+          <div ref={legendRef} className="text-[10px] font-medium leading-tight text-foreground sm:text-xs sm:leading-normal" />
           {sym && lotInfoText(sym, qty) && (
-            <span className="text-[10px] text-muted-foreground">{lotInfoText(sym, qty)}</span>
+            <span className="text-[9px] text-muted-foreground sm:text-[10px]">{lotInfoText(sym, qty)}</span>
           )}
         </div>
         {/* The armed drawing tool's glyph follows the pointer: the terminal
             sets --tool-cursor while a tool is armed and clears it after. */}
-        <div ref={chartRef} className="absolute inset-0 [cursor:var(--tool-cursor,auto)]" />
+        <div ref={chartRef} className="absolute inset-0 touch-none [cursor:var(--tool-cursor,auto)]" />
 
         {/* Live P&L tag following cursor during TP/SL drag (zones & dashed line render at 60fps on canvas) */}
         {posInfo && posInfo.net !== 0 && tpSlDrag && tpSlDrag.price != null && (

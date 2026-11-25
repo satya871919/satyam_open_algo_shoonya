@@ -964,10 +964,11 @@ if __name__ == "__main__":
     if debug:
         should_start_ngrok = os.environ.get("WERKZEUG_RUN_MAIN") == "true"
 
+    _ngrok_url = None
     if should_start_ngrok and os.getenv("NGROK_ALLOW", "FALSE").upper() == "TRUE":
         from utils.ngrok_manager import start_ngrok_tunnel
 
-        start_ngrok_tunnel(port)
+        _ngrok_url = start_ngrok_tunnel(port)
 
     reloader_options = {
         "exclude_patterns": [
@@ -1021,6 +1022,7 @@ if __name__ == "__main__":
             _sl,
             f"{W}{BD}Endpoints{R}",
             f"{W}Web App{R}    {C}{_wu}{R}",
+            *([f"{W}Ngrok{R}      {G}{_ngrok_url}{R}"] if _ngrok_url else []),
             f"{W}WebSocket{R}  {M}{_wsu}{R}",
             f"{W}Docs{R}       {Y}{_du}{R}",
             f"{W}Status{R}     {G}{BD}Ready{R}",
