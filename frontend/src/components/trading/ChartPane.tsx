@@ -1,7 +1,8 @@
 // Lucide survives for the context menu's cut glyph only, which the engine's
 // chrome set has no picture for; it is drawn at the engine's line weight.
 // Everything else in the toolbar and the menus is the engine's chrome set.
-import { Scissors } from 'lucide-react'
+import { ChevronsRight, Scissors } from 'lucide-react'
+import { keyboardOwnedElsewhere } from '@/lib/trading/priceAxis'
 import type { ChartObjects, LinkGroup } from 'openalgo-charts'
 import type { MagnetMode } from 'openalgo-charts/draw'
 import type { WorkspacePane } from 'openalgo-charts/workspace'
@@ -102,6 +103,7 @@ import {
   type DrawSelection,
   type DrawStats,
   type IndicatorSettingsRequest,
+  type ChartPositionOverlay,
   type OrderTicketRequest,
   type ReplayState,
   type SymbolView,
@@ -476,6 +478,19 @@ export function ChartPane({
 
   // right-click menu: order entry, then the view actions
   const [ctx, setCtx] = useState<TerminalContextMenu | null>(null)
+  const [posInfo, setPosInfo] = useState<ChartPositionOverlay | null>(null)
+  const [scrolledBack, setScrolledBack] = useState(false)
+  const [axisQuick, setAxisQuick] = useState<{ autoFit: boolean; log: boolean } | null>(null)
+  const refreshAxisQuick = () => {
+    const m = terminalRef.current?.priceAxisMenu()
+    if (m) setAxisQuick({ autoFit: m.autoFit, log: m.mode === 'logarithmic' })
+  }
+  const tpSlHandleRef = useRef<HTMLDivElement>(null)
+  const [tpSlDrag, setTpSlDrag] = useState<{
+    kind: 'TP' | 'SL'
+    y: number
+    price: number | null
+  } | null>(null)
   /**
    * The order ticket, while One-Click is off. The terminal validates the
    * click and hands over what it would have sent; the same dialog the option
@@ -511,7 +526,7 @@ export function ChartPane({
             Math.min(
               menu.y,
               window.innerHeight -
-                (menu.axis ? 470 : (menu.profile ? 490 : 430) + (menu.drawing ? 105 : 0))
+                (menu.axis ? 520 : (menu.profile ? 490 : 430) + (menu.drawing ? 105 : 0))
             )
           ),
         })
@@ -551,6 +566,17 @@ export function ChartPane({
       },
       onBrandingChange: (link) => current && setBranding(link),
       onLtp: () => {}, // legend overlay + canvas render the live price
+      onPositionChange: (pos) => current && setPosInfo(pos),
+      onScrolledBackChange: (v) => current && setScrolledBack(v),
+      onPositionY: (y) => {
+        if (!current || !tpSlHandleRef.current) return
+        if (y == null) {
+          tpSlHandleRef.current.style.display = 'none'
+        } else {
+          tpSlHandleRef.current.style.display = 'flex'
+          tpSlHandleRef.current.style.top = `${y}px`
+        }
+      },
       onDrawChange: (s) => {
         if (!current) return
         statsCbRef.current?.(s)
@@ -1048,6 +1074,19 @@ export function ChartPane({
   useEffect(() => {
     if (focused && ready) void import('./SymbolSearchDialog')
   }, [focused, ready])
+
+  useEffect(() => {
+    if (!ready) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.altKey && e.shiftKey && e.key === 'ArrowRight' && !e.ctrlKey && !e.metaKey) {
+        if (keyboardOwnedElsewhere(document)) return
+        e.preventDefault()
+        terminalRef.current?.scrollToLatestBar()
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [ready])
 
   return (
     <section
@@ -1651,6 +1690,219 @@ export function ChartPane({
             sets --tool-cursor while a tool is armed and clears it after. */}
         <div ref={chartRef} className="absolute inset-0 [cursor:var(--tool-cursor,auto)]" />
 
+        {/* Live P&L tag following cursor during TP/SL drag (zones & dashed line render at 60fps on canvas) */}
+        {posInfo && posInfo.net !== 0 && tpSlDrag && tpSlDrag.price != null && (
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute right-20 z-20 -translate-y-1/2"
+            style={{ top: tpSlDrag.y }}
+          >
+            <span
+              className={cn(
+                'rounded px-2 py-0.5 text-[11px] font-semibold text-white shadow',
+                tpSlDrag.kind === 'TP' ? 'bg-emerald-600' : 'bg-amber-600'
+              )}
+            >
+              {tpSlDrag.kind} @ {tpSlDrag.price.toFixed(2)} (
+              {(tpSlDrag.price - posInfo.avg) * posInfo.net >= 0 ? '+' : '-'}₹
+              {Math.abs((tpSlDrag.price - posInfo.avg) * posInfo.net).toFixed(2)})
+            </span>
+          </div>
+        )}
+
+        {/* Direct drag-from-position-line TP / SL handle, synced at 60fps via tpSlHandleRef */}
+        {posInfo &&
+          posInfo.net !== 0 &&
+          (posInfo.tpPrice == null || posInfo.slPrice == null) && (
+            <div
+              ref={tpSlHandleRef}
+              className="pointer-events-auto absolute left-1/2 z-20 flex -translate-x-1/2 -translate-y-1/2 items-center gap-1 rounded border border-border bg-background/90 px-1.5 py-0.5 text-[11px] shadow-md backdrop-blur"
+              style={{
+                top: posInfo.posY ?? -9999,
+                display: posInfo.posY == null ? 'none' : 'flex',
+              }}
+            >
+              {(['TP', 'SL'] as const)
+                .filter((kind) => (kind === 'TP' ? posInfo.tpPrice == null : posInfo.slPrice == null))
+                .map((kind) => (
+              <button
+                key={kind}
+                type="button"
+                onPointerDown={(e) => {
+                  e.preventDefault()
+                  e.stopPropagation()
+                  const box = chartRef.current?.getBoundingClientRect()
+                  if (!box) return
+                  const startY = e.clientY - box.top
+                  let moved = false
+                  let latestPrice = terminalRef.current?.coordinateToSnappedPrice(startY) ?? null
+                  if (latestPrice != null) {
+                    terminalRef.current?.setTpSlPreview({ kind, price: latestPrice })
+                  }
+                  setTpSlDrag({ kind, y: startY, price: latestPrice })
+
+                  const onMove = (mv: PointerEvent) => {
+                    const localY = Math.max(0, Math.min(box.height, mv.clientY - box.top))
+                    if (Math.abs(localY - startY) > 4) moved = true
+                    latestPrice = terminalRef.current?.coordinateToSnappedPrice(localY) ?? null
+                    if (latestPrice != null) {
+                      terminalRef.current?.setTpSlPreview({ kind, price: latestPrice })
+                    }
+                    setTpSlDrag({ kind, y: localY, price: latestPrice })
+                  }
+                  const onUp = () => {
+                    window.removeEventListener('pointermove', onMove)
+                    window.removeEventListener('pointerup', onUp)
+                    terminalRef.current?.setTpSlPreview(null)
+                    setTpSlDrag(null)
+                    if (moved && latestPrice != null) {
+                      void terminalRef.current?.placeTpSl(kind, latestPrice)
+                    } else {
+                      terminalRef.current?.placeQuickTpSl(kind)
+                    }
+                  }
+                  window.addEventListener('pointermove', onMove)
+                  window.addEventListener('pointerup', onUp)
+                }}
+                className={cn(
+                  'cursor-ns-resize select-none rounded px-1.5 py-0.5 font-semibold transition-colors',
+                  kind === 'TP'
+                    ? 'bg-emerald-600/25 text-emerald-400 hover:bg-emerald-600/40'
+                    : 'bg-amber-500/25 text-amber-400 hover:bg-amber-500/40'
+                )}
+                title={`Drag up/down or click to set ${kind}`}
+              >
+                {kind}
+              </button>
+            ))}
+          </div>
+        )}
+
+        {/* TradingView-style A (Auto-fit) and L (Logarithmic) quick toggles + bottom-right Price Scale settings icon */}
+        {ready && (
+          <>
+            <div
+              onMouseEnter={refreshAxisQuick}
+              className="group pointer-events-auto absolute bottom-7 right-1.5 z-20 flex h-9 w-[74px] items-start justify-end pr-0.5 pt-0.5"
+            >
+              <div className="flex items-center gap-1 opacity-0 transition-opacity duration-150 group-hover:opacity-100 group-focus-within:opacity-100">
+                <button
+                  type="button"
+                  aria-label="Auto (fits data to screen)"
+                  aria-pressed={axisQuick?.autoFit ?? true}
+                  title="Auto (fits data to screen) (Alt+A)"
+                  onClick={() => {
+                    void terminalRef.current?.priceAxisCommand({ type: 'autoFit' }).then(refreshAxisQuick)
+                  }}
+                  className={cn(
+                    'flex h-6 w-6 items-center justify-center rounded text-[11px] font-semibold transition-colors',
+                    (axisQuick?.autoFit ?? true)
+                      ? 'bg-[#2962ff] text-white shadow-sm'
+                      : 'border border-border bg-background/90 text-muted-foreground hover:text-foreground'
+                  )}
+                >
+                  A
+                </button>
+                <button
+                  type="button"
+                  aria-label="Logarithmic scale"
+                  aria-pressed={axisQuick?.log ?? false}
+                  title="Logarithmic scale (Alt+L)"
+                  onClick={() => {
+                    void terminalRef.current
+                      ?.priceAxisCommand({ type: 'toggleMode', mode: 'logarithmic' })
+                      .then(refreshAxisQuick)
+                  }}
+                  className={cn(
+                    'flex h-6 w-6 items-center justify-center rounded text-[11px] font-semibold transition-colors',
+                    axisQuick?.log
+                      ? 'bg-[#2962ff] text-white shadow-sm'
+                      : 'border border-border bg-background/90 text-muted-foreground hover:text-foreground'
+                  )}
+                >
+                  L
+                </button>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              aria-label="Price scale settings"
+              title="Price scale settings"
+              onClick={(e) => {
+                e.stopPropagation()
+                const t = terminalRef.current
+                if (!t) return
+                const menu = t.priceAxisMenu()
+                if (!menu) return
+                const rect = e.currentTarget.getBoundingClientRect()
+                setCtx((prev) =>
+                  prev?.axis
+                    ? null
+                    : {
+                        x: Math.max(8, Math.min(rect.right - 242, window.innerWidth - 248)),
+                        y: Math.max(8, rect.top - 395),
+                        items: [],
+                        profile: null,
+                        axis: menu,
+                      }
+                )
+              }}
+              className="pointer-events-auto absolute bottom-0 right-0 z-20 flex h-[28px] w-[78px] items-center justify-center text-muted-foreground transition-colors hover:text-foreground"
+            >
+              <svg
+                width="16"
+                height="16"
+                viewBox="0 0 18 18"
+                fill="none"
+                aria-hidden="true"
+                className="shrink-0"
+              >
+                <path
+                  d="M6.8 2.2h4.4l3.5 6.8-3.5 6.8H6.8L3.3 9 6.8 2.2Z"
+                  stroke="currentColor"
+                  strokeWidth="1.4"
+                  strokeLinejoin="round"
+                />
+                <circle cx="9" cy="9" r="2.2" stroke="currentColor" strokeWidth="1.4" />
+              </svg>
+            </button>
+
+            {scrolledBack && (
+              <div className="group/scroll pointer-events-auto absolute bottom-10 right-[92px] z-20">
+                <div
+                  role="tooltip"
+                  className="pointer-events-none invisible absolute bottom-full right-0 mb-2 flex items-center gap-2 whitespace-nowrap rounded-md border border-border bg-popover px-2.5 py-1.5 text-xs text-popover-foreground opacity-0 shadow-xl transition-opacity duration-150 group-hover/scroll:visible group-hover/scroll:opacity-100"
+                >
+                  <span>Scroll to the most recent bar</span>
+                  <span className="h-3.5 w-px bg-border" />
+                  <span className="flex items-center gap-1 text-[11px]">
+                    <kbd className="rounded border border-border bg-muted px-1.5 py-0.5 font-sans font-medium">
+                      Alt
+                    </kbd>
+                    <span>+</span>
+                    <kbd className="rounded border border-border bg-muted px-1.5 py-0.5 font-sans font-medium">
+                      Shift
+                    </kbd>
+                    <span>+</span>
+                    <kbd className="rounded border border-border bg-muted px-1.5 py-0.5 font-sans font-medium">
+                      →
+                    </kbd>
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  aria-label="Scroll to the most recent bar"
+                  onClick={() => terminalRef.current?.scrollToLatestBar()}
+                  className="flex h-7 w-7 items-center justify-center rounded-md border border-border/80 bg-popover/95 text-[#2962ff] shadow-lg transition-colors hover:bg-accent"
+                >
+                  <ChevronsRight className="h-4 w-4" />
+                </button>
+              </div>
+            )}
+          </>
+        )}
+
         {/* Nothing on this pane takes input until it has been built. */}
         {!ready && <div className="absolute inset-0" aria-hidden="true" />}
         <ChartStateOverlay
@@ -2031,6 +2283,29 @@ export function ChartPane({
                 something else, is a choice nobody wants to make mid-gesture.
                 The form is on the toolbar, where somebody who wants it is
                 already looking. */}
+            {ctx.tpSl && ctx.tpSl.length > 0 && (
+              <>
+                {ctx.tpSl.map((item) => (
+                  <button
+                    type="button"
+                    key={`${item.kind}:${item.price}`}
+                    onClick={() => {
+                      void terminalRef.current?.placeTpSl(item.kind, item.price)
+                      setCtx(null)
+                    }}
+                    className={cn(
+                      'flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-sm font-medium hover:bg-accent hover:text-accent-foreground',
+                      item.kind === 'TP'
+                        ? 'text-emerald-600 dark:text-emerald-400'
+                        : 'text-amber-600 dark:text-amber-400'
+                    )}
+                  >
+                    {item.label}
+                  </button>
+                ))}
+                <div className="my-1 h-px bg-border" />
+              </>
+            )}
             {ctx.items.map((it) => (
               <button
                 type="button"

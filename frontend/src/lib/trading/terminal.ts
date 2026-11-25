@@ -418,6 +418,17 @@ export interface ConfirmedOrder {
   trigger_price?: number
 }
 
+export interface ChartPositionOverlay {
+  net: number
+  avg: number
+  tpPrice: number | null
+  slPrice: number | null
+  posY: number | null
+  tpY: number | null
+  slY: number | null
+  tick: number
+}
+
 export interface TerminalCallbacks {
   onComparisonsChange?(state: TerminalComparisonState): void
   /** Chart configuration changed; live price updates do not fire this callback. */
@@ -433,6 +444,9 @@ export interface TerminalCallbacks {
   /** Linked branding exposed in host chrome for keyboard and assistive technology. */
   onBrandingChange?(link: BrandingLink | null): void
   onLtp(ltp: number): void
+  onPositionChange?(pos: ChartPositionOverlay | null): void
+  onPositionY?(y: number | null): void
+  onScrolledBackChange?(scrolledBack: boolean): void
   /** Drawing toolbar state changed (tool armed, shape added/removed, undo...). */
   onDrawChange?(stats: DrawStats): void
   /** The live indicator list changed. */
@@ -867,10 +881,20 @@ export interface TerminalOptions {
   callbacks: TerminalCallbacks
 }
 
+export interface TpSlCtxItem {
+  kind: 'TP' | 'SL'
+  side: OrderSide
+  type: OrderType
+  price: number
+  qty: number
+  label: string
+}
+
 export interface TerminalContextMenu {
   x: number
   y: number
   items: CtxItem[]
+  tpSl?: TpSlCtxItem[]
   profile: ProfileMenuAction | null
   alert?: { label: string; source: AlertSource; disabled?: boolean; reason?: string }
   /**
@@ -1167,6 +1191,9 @@ export class TradingTerminal {
   /** The tier's tool registry, for a tool's own defaults; null until it loads. */
   private toolOf: ((id: string) => DrawingTool) | null = null
   private posLine: PriceLine | null = null
+  private tpSlPreview: { kind: 'TP' | 'SL'; price: number } | null = null
+  private lastPositionY: number | null = null
+  private lastScrolledBack = false
   private tradeBtns: BuySellButtonsInstance | null = null
   /** The bar the OHLC readout is currently showing; replayed into the export. */
   private legendBar: Bar | null = null
@@ -2084,20 +2111,88 @@ export class TradingTerminal {
   }
 
   /* ── order lines / position marker ────────────────────────────────────── */
+  private classifyExitOrder(o: Pick<LineOrder, 'side' | 'type'>): 'TP' | 'SL' | null {
+    if (!this.position || this.position.net === 0) return null
+    const exitSide: OrderSide = this.position.net > 0 ? 'SELL' : 'BUY'
+    if (o.side !== exitSide) return null
+    if (o.type === 'LIMIT') return 'TP'
+    if (o.type === 'SL' || o.type === 'SL-M') return 'SL'
+    return null
+  }
+
+  private exitOrderLineStyle(
+    o: Pick<LineOrder, 'side' | 'type'>,
+    price: number
+  ): { color: string; badge: string; leftLabel: string } {
+    const kind = this.classifyExitOrder(o)
+    if (kind && this.position) {
+      const pnl = (price - this.position.avg) * this.position.net
+      const pnlText = `${pnl >= 0 ? '+' : '-'}₹${money(Math.abs(pnl))}`
+      return {
+        color: kind === 'TP' ? '#089981' : '#f59e0b',
+        badge: kind,
+        leftLabel: `${pnlText}  (${o.type})`,
+      }
+    }
+    return {
+      color: o.side === 'BUY' ? '#26a69a' : '#ef5350',
+      badge: o.side,
+      leftLabel: o.type,
+    }
+  }
+
+  private emitPositionChange(): void {
+    if (!this.position || this.position.net === 0) {
+      this.cb.onPositionChange?.(null)
+      return
+    }
+    let tpPrice: number | null = null
+    let slPrice: number | null = null
+    for (const rec of this.orderLines.values()) {
+      const kind = this.classifyExitOrder(rec.order)
+      if (kind === 'TP' && tpPrice === null) tpPrice = rec.line.price
+      if (kind === 'SL' && slPrice === null) slPrice = rec.line.price
+    }
+    const posY = this.chart?.priceToCoordinate(this.position.avg, 0) ?? null
+    const tpY = tpPrice != null ? (this.chart?.priceToCoordinate(tpPrice, 0) ?? null) : null
+    const slY = slPrice != null ? (this.chart?.priceToCoordinate(slPrice, 0) ?? null) : null
+    this.cb.onPositionChange?.({
+      net: this.position.net,
+      avg: this.position.avg,
+      tpPrice,
+      slPrice,
+      posY: posY != null && Number.isFinite(posY) ? posY : null,
+      tpY: tpY != null && Number.isFinite(tpY) ? tpY : null,
+      slY: slY != null && Number.isFinite(slY) ? slY : null,
+      tick: this.sym?.tick || 0.05,
+    })
+  }
+
+  private refreshOrderLineLabels(): void {
+    for (const rec of this.orderLines.values()) {
+      const px = rec.line.price
+      const style = this.exitOrderLineStyle(rec.order, px)
+      rec.line.setOptions(style)
+    }
+    this.emitPositionChange()
+  }
+
   private makeOrderLine(o: LineOrder): PriceLine {
+    const px = o.triggerPrice ?? o.price
+    const style = this.exitOrderLineStyle(o, px)
     return this.chart!.addPriceLine(
       {
-        price: o.triggerPrice ?? o.price,
-        color: o.side === 'BUY' ? '#26a69a' : '#ef5350',
+        price: px,
+        color: style.color,
         lineWidth: 1,
         dashed: true,
         id: `order:${o.id}`,
+        extentFromRight: 0.28,
         cursor: 'ns-resize',
-        extentFromRight: 0.3,
         closeButton: true,
-        badge: o.side,
+        badge: style.badge,
         qty: o.qty,
-        leftLabel: o.type,
+        leftLabel: style.leftLabel,
       },
       0
     )
@@ -2124,6 +2219,7 @@ export class TradingTerminal {
       : null
     if (!this.position || !this.chart || this.position.net === 0) {
       this.position = this.position && this.position.net !== 0 ? this.position : null
+      this.emitPositionChange()
       return
     }
     this.posLine = this.chart.addPriceLine(
@@ -2133,7 +2229,7 @@ export class TradingTerminal {
         lineWidth: 2,
         dashed: false,
         id: 'position',
-        extentFromRight: 0.3,
+        extentFromRight: 0.28,
         closeButton: true,
         badge: this.position.net > 0 ? 'LONG' : 'SHORT',
         qty: Math.abs(this.position.net),
@@ -2173,6 +2269,7 @@ export class TradingTerminal {
     }
     try {
       const j = await this.api<{ data?: Record<string, unknown>[] }>('positionbook')
+      const prevNet = this.position?.net ?? 0
       this.renderPosition(
         (j.data || []).find(
           (p) =>
@@ -2181,6 +2278,10 @@ export class TradingTerminal {
             Number(p.quantity) !== 0
         )
       )
+      if (prevNet !== 0 && (!this.position || this.position.net === 0)) {
+        await this.cancelExitOrdersForClosedPosition(prevNet)
+      }
+      this.refreshOrderLineLabels()
     } catch {
       /* transient */
     }
@@ -2316,11 +2417,35 @@ export class TradingTerminal {
     }
   }
 
+  private async cancelExitOrdersForClosedPosition(prevNet: number): Promise<void> {
+    if (!this.trade || prevNet === 0) return
+    const exitSide: OrderSide = prevNet > 0 ? 'SELL' : 'BUY'
+    const ids: string[] = []
+    for (const [id, rec] of this.orderLines) {
+      if (
+        rec.order.side === exitSide &&
+        (rec.order.type === 'LIMIT' || rec.order.type === 'SL' || rec.order.type === 'SL-M')
+      ) {
+        ids.push(id)
+      }
+    }
+    if (ids.length === 0) return
+    await Promise.allSettled(ids.map((id) => this.trade!.cancel(id)))
+    for (const id of ids) {
+      const rec = this.orderLines.get(id)
+      if (rec) {
+        this.chart?.removePrimitive(rec.line)
+        this.orderLines.delete(id)
+      }
+    }
+  }
+
   async exitPosition() {
     if (this.refuseWhileReplaying()) return
     if (!this.trade || !this.position || !this.sym) return
-    const qty = Math.abs(this.position.net)
-    const side: OrderSide = this.position.net > 0 ? 'SELL' : 'BUY'
+    const prevNet = this.position.net
+    const qty = Math.abs(prevNet)
+    const side: OrderSide = prevNet > 0 ? 'SELL' : 'BUY'
     try {
       // Square off with a plain market placeorder (opposite side, position qty) —
       // never placesmartorder.
@@ -2333,6 +2458,7 @@ export class TradingTerminal {
         product: (this.position.product || this.product) as 'CNC' | 'NRML' | 'MIS',
         mode: this.tradeMode(),
       })
+      await this.cancelExitOrdersForClosedPosition(prevNet)
       this.toast('position closed', 'ok')
       this.pollBook()
     } catch (e) {
@@ -2506,9 +2632,8 @@ export class TradingTerminal {
       // deliberately: a countdown repaints every second, and on the historical
       // range a chart usually opens on it counts against a bar that closed months
       // ago. A live trading terminal is the case they are for, so this host opts
-      // in. The clock reads the exchange's wall time through the chart's
-      // configured timezone, which is what a trader is actually watching.
-      axisChrome: { sessionClock: { showOffset: true }, barCountdown: true },
+      // Replace the corner session clock with the bottom-right Price Scale settings icon.
+      axisChrome: { barCountdown: true },
       // The library's built-in screenshot command calls its own
       // `downloadScreenshot()`, which knows nothing about this terminal's DOM
       // OHLC readout or its trade panel. Unbind it and claim the same chord for
@@ -2692,6 +2817,106 @@ export class TradingTerminal {
       this.addExcludedPrimitive(this.tradeBtns, 0)
     } else this.tradeBtns = null
 
+    {
+      const terminal = this
+      this.chart.addPrimitive(
+        {
+          zOrder: () => 'bottom',
+          draw(_ctx, rc) {
+            const barsCount = terminal.shownCount || terminal.rawBars.length
+            const range = rc.timeScale.visibleRange()
+            const scrolledBack = barsCount > 0 && range.to < barsCount - 2
+            if (scrolledBack !== terminal.lastScrolledBack) {
+              terminal.lastScrolledBack = scrolledBack
+              terminal.cb.onScrolledBackChange?.(scrolledBack)
+            }
+          },
+        },
+        0
+      )
+    }
+
+    if (!this.sym!.quoteOnly) {
+      const terminal = this
+      this.chart.addPrimitive(
+        {
+          zOrder: () => 'bottom',
+          draw(ctx, rc) {
+            const chart = terminal.chart
+            const pos = terminal.position
+            if (!chart || !pos || pos.net === 0) {
+              if (terminal.lastPositionY !== null) {
+                terminal.lastPositionY = null
+                terminal.cb.onPositionY?.(null)
+              }
+              return
+            }
+            const posY = chart.priceToCoordinate(pos.avg, 0)
+            if (posY == null || !Number.isFinite(posY)) {
+              if (terminal.lastPositionY !== null) {
+                terminal.lastPositionY = null
+                terminal.cb.onPositionY?.(null)
+              }
+              return
+            }
+            if (terminal.lastPositionY === null || Math.abs(posY - terminal.lastPositionY) >= 0.5) {
+              terminal.lastPositionY = posY
+              terminal.cb.onPositionY?.(posY)
+            }
+
+            let tpPrice: number | null =
+              terminal.tpSlPreview?.kind === 'TP' ? terminal.tpSlPreview.price : null
+            let slPrice: number | null =
+              terminal.tpSlPreview?.kind === 'SL' ? terminal.tpSlPreview.price : null
+            for (const rec of terminal.orderLines.values()) {
+              const kind = terminal.classifyExitOrder(rec.order)
+              if (kind === 'TP' && tpPrice === null) tpPrice = rec.line.price
+              if (kind === 'SL' && slPrice === null) slPrice = rec.line.price
+            }
+
+            if (tpPrice != null) {
+              const tpY = chart.priceToCoordinate(tpPrice, 0)
+              if (tpY != null && Number.isFinite(tpY)) {
+                ctx.save()
+                ctx.fillStyle = 'rgba(8, 153, 129, 0.13)'
+                ctx.fillRect(0, Math.min(posY, tpY), rc.plotWidth, Math.max(1, Math.abs(tpY - posY)))
+                if (terminal.tpSlPreview?.kind === 'TP') {
+                  ctx.strokeStyle = '#089981'
+                  ctx.lineWidth = 1.5
+                  ctx.setLineDash([5, 4])
+                  ctx.beginPath()
+                  ctx.moveTo(0, tpY)
+                  ctx.lineTo(rc.plotWidth, tpY)
+                  ctx.stroke()
+                }
+                ctx.restore()
+              }
+            }
+
+            if (slPrice != null) {
+              const slY = chart.priceToCoordinate(slPrice, 0)
+              if (slY != null && Number.isFinite(slY)) {
+                ctx.save()
+                ctx.fillStyle = 'rgba(245, 158, 11, 0.13)'
+                ctx.fillRect(0, Math.min(posY, slY), rc.plotWidth, Math.max(1, Math.abs(slY - posY)))
+                if (terminal.tpSlPreview?.kind === 'SL') {
+                  ctx.strokeStyle = '#f59e0b'
+                  ctx.lineWidth = 1.5
+                  ctx.setLineDash([5, 4])
+                  ctx.beginPath()
+                  ctx.moveTo(0, slY)
+                  ctx.lineTo(rc.plotWidth, slY)
+                  ctx.stroke()
+                }
+                ctx.restore()
+              }
+            }
+          },
+        },
+        0
+      )
+    }
+
     this.chart.subscribeCrosshairMove((e) => {
       this.legendTime = e.bar?.time ?? null
       this.refreshLegend(this.drawnBars())
@@ -2735,7 +2960,10 @@ export class TradingTerminal {
           rec.dragFrom = rec.line.price
           rec.line.setDragGhost(rec.dragFrom)
         }
-        rec.line.setPrice(this.snap(p))
+        const snapped = this.snap(p)
+        rec.line.setPrice(snapped)
+        rec.line.setLeftLabel(this.exitOrderLineStyle(rec.order, snapped).leftLabel)
+        this.emitPositionChange()
       },
       (id, p) => {
         if (!id.startsWith('order:') || id.endsWith('::close')) return
@@ -6510,7 +6738,10 @@ export class TradingTerminal {
     this.cb.onLtp(e.ltp)
     // Recolour with the price: the line belongs to the forming candle, so it
     // follows that candle's direction rather than sitting amber forever.
-    if (this.position && this.posLine) this.posLine.setLeftLabel(this.posLabel())
+    if (this.position && this.posLine) {
+      this.posLine.setLeftLabel(this.posLabel())
+      this.emitPositionChange()
+    }
     if (this.tradeBtns && !this.depthActive) this.tradeBtns.setMark(e.ltp)
     if (
       this.builder &&
@@ -7318,6 +7549,17 @@ export class TradingTerminal {
     this.applyDefaultViewport()
   }
 
+  /** Jump back to the most recent bar while keeping the current zoom span. */
+  scrollToLatestBar() {
+    if (!this.chart || this.destroyed) return
+    const barsCount = this.shownCount || this.rawBars.length
+    if (barsCount <= 0) return
+    const range = this.chart.timeScale.visibleRange()
+    const span = Math.max(20, range.to - range.from)
+    const to = barsCount - 1 + RIGHT_PAD_BARS
+    this.chart.timeScale.setVisibleLogicalRange({ from: to - span, to })
+  }
+
   /* ── bottom bar hooks: the logic is in bottomBar.ts ───────────────────── */
 
   /** The chart on screen, or null before the first load and after teardown. */
@@ -7633,13 +7875,13 @@ export class TradingTerminal {
       }
     }
     const box = this.container.getBoundingClientRect()
+    const ctxMenu =
+      event.paneIndex === 0 && event.price !== null ? this.contextMenuAt(event.point.y) : null
     this.cb.onContextMenu?.({
       x: box.left + event.point.x,
       y: box.top + event.point.y,
-      items:
-        event.paneIndex === 0 && event.price !== null
-          ? (this.contextMenuAt(event.point.y)?.items ?? [])
-          : [],
+      items: ctxMenu?.items ?? [],
+      tpSl: ctxMenu?.tpSl,
       profile: this.profileContextMenuAt(event.point.x, event.point.y),
       alert,
       study:
@@ -7711,7 +7953,7 @@ export class TradingTerminal {
   }
 
   /** Build the context-menu items for a right-click at container-local y. */
-  contextMenuAt(localY: number): { price: number; items: CtxItem[] } | null {
+  contextMenuAt(localY: number): { price: number; items: CtxItem[]; tpSl?: TpSlCtxItem[] } | null {
     if (!this.chart || !this.sym || this.sym.quoteOnly) return null
     const p = this.chart.coordinateToPrice(localY, 0)
     if (p == null) return null
@@ -7741,10 +7983,125 @@ export class TradingTerminal {
       }
       return { side, type, label, enabled }
     })
-    return { price: this.ctxPrice, items }
+
+    const tpSl: TpSlCtxItem[] = []
+    if (this.position && this.position.net !== 0) {
+      const exitSide: OrderSide = this.position.net > 0 ? 'SELL' : 'BUY'
+      const posQty = Math.abs(this.position.net)
+      const pnl = (this.ctxPrice - this.position.avg) * this.position.net
+      const pnlText = `${pnl >= 0 ? '+' : '-'}₹${money(Math.abs(pnl))}`
+      const isLong = this.position.net > 0
+      const canTp = m == null || (isLong ? this.ctxPrice > m : this.ctxPrice < m)
+      const canSl = m == null || (isLong ? this.ctxPrice < m : this.ctxPrice > m)
+      if (canTp) {
+        tpSl.push({
+          kind: 'TP',
+          side: exitSide,
+          type: 'LIMIT',
+          price: this.ctxPrice,
+          qty: posQty,
+          label: `Set TP @ ${this.fmt(this.ctxPrice)} (${pnlText})`,
+        })
+      }
+      if (canSl) {
+        tpSl.push({
+          kind: 'SL',
+          side: exitSide,
+          type: 'SL',
+          price: this.ctxPrice,
+          qty: posQty,
+          label: `Set SL @ ${this.fmt(this.ctxPrice)} (${pnlText})`,
+        })
+      }
+    }
+
+    return { price: this.ctxPrice, items, tpSl: tpSl.length ? tpSl : undefined }
   }
   placeCtx(side: OrderSide, type: OrderType) {
     void this.placeFromMenu(side, type)
+  }
+
+  coordinateToSnappedPrice(localY: number): number | null {
+    if (!this.chart) return null
+    const raw = this.chart.coordinateToPrice(localY, 0)
+    return raw != null && Number.isFinite(raw) ? this.snap(raw) : null
+  }
+
+  setTpSlPreview(preview: { kind: 'TP' | 'SL'; price: number } | null): void {
+    this.tpSlPreview = preview
+    if (this.posLine && this.position) {
+      this.posLine.setLeftLabel(this.posLabel())
+    }
+  }
+
+  placeQuickTpSl(kind: 'TP' | 'SL') {
+    if (this.refuseWhileReplaying()) return
+    if (!this.position || this.position.net === 0) {
+      this.toast('No open position for TP/SL')
+      return
+    }
+    const ref = this.marketPrice() ?? this.position.avg
+    const tick = this.sym?.tick || 0.05
+    const offset = Math.max(Math.abs(this.snap(ref * 0.02) - ref), tick * 20)
+    const isLong = this.position.net > 0
+    const target =
+      kind === 'TP'
+        ? isLong
+          ? ref + offset
+          : Math.max(tick, ref - offset)
+        : isLong
+          ? Math.max(tick, ref - offset)
+          : ref + offset
+    void this.placeTpSl(kind, this.snap(target))
+  }
+
+  async placeTpSl(kind: 'TP' | 'SL', price: number) {
+    if (this.refuseWhileReplaying()) return
+    if (!this.sym || !this.trade || !this.position || this.position.net === 0) return
+    const px = this.snap(price)
+    const exitSide: OrderSide = this.position.net > 0 ? 'SELL' : 'BUY'
+    const type: OrderType = kind === 'TP' ? 'LIMIT' : 'SL-M'
+    const qty = Math.abs(this.position.net)
+    const product = (this.position.product || this.product) as 'CNC' | 'NRML' | 'MIS'
+
+    if (!this.armed) {
+      if (!this.cb.onOrderTicket) {
+        this.toast('One-Click is off', 'err')
+        return
+      }
+      this.cb.onOrderTicket({
+        symbol: this.sym.symbol,
+        exchange: this.sym.exchange,
+        action: exitSide,
+        quantity: qty,
+        lotSize: this.sym.lots ? this.sym.lotsize : 1,
+        tickSize: this.sym.tick,
+        product,
+        priceType: type,
+        price: kind === 'TP' ? px : undefined,
+        triggerPrice: kind === 'SL' ? px : undefined,
+        strategy: STRATEGY,
+      })
+      return
+    }
+
+    try {
+      const r = await this.trade.place({
+        symbol: this.sym.symbol,
+        exchange: this.sym.exchange,
+        side: exitSide,
+        type,
+        qty,
+        product,
+        price: kind === 'TP' ? px : undefined,
+        triggerPrice: kind === 'SL' ? px : undefined,
+        mode: this.tradeMode(),
+      })
+      this.toast(`${kind} set @ ${this.fmt(px)} (id ${r.orderId})`, 'ok')
+      this.pollBook()
+    } catch (e) {
+      this.toast(this.cleanError(e), 'err')
+    }
   }
 
   /* ── bootstrap + teardown ─────────────────────────────────────────────── */

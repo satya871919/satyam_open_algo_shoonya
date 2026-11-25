@@ -21,6 +21,7 @@
  * and read by the engine when it paints, so a tick allocates nothing here.
  */
 import {
+  type Bar,
   type CustomShortcut,
   computePriceLevels,
   type createChart,
@@ -34,14 +35,27 @@ import {
   type PriceScaleMode,
   readChartSettings,
   seriesStyleForLastPriceLevel,
+  sessionStartFlags,
 } from 'openalgo-charts'
 import type { ChartSettingsField, ChartSettingsRequest } from './terminal'
 
 type Chart = ReturnType<typeof createChart>
 type Values = Record<string, string | number | boolean>
 
+/** Engine-native levels handled by `PriceLevels`. */
+const ENGINE_LEVELS = ['previousClose', 'sessionHigh', 'sessionLow', 'bid', 'ask'] as const
+type EngineLevel = (typeof ENGINE_LEVELS)[number]
+
 /** The levels this host draws itself. The last price is the series' own line. */
-export const HOST_LEVELS = ['previousClose', 'sessionHigh', 'sessionLow', 'bid', 'ask'] as const
+export const HOST_LEVELS = [
+  'previousClose',
+  'sessionHigh',
+  'sessionLow',
+  'todayOpen',
+  'preDayOpen',
+  'bid',
+  'ask',
+] as const
 export type HostLevel = (typeof HOST_LEVELS)[number]
 /** Every level the menu lists, in the order it lists them. */
 export type MenuLevel = HostLevel | 'lastPrice'
@@ -50,6 +64,8 @@ const MENU_LEVELS: readonly MenuLevel[] = [
   'previousClose',
   'sessionHigh',
   'sessionLow',
+  'todayOpen',
+  'preDayOpen',
   'bid',
   'ask',
 ]
@@ -59,6 +75,8 @@ export const LEVEL_LABELS: Record<MenuLevel, string> = {
   previousClose: 'Previous close',
   sessionHigh: 'Day high',
   sessionLow: 'Day low',
+  todayOpen: 'Today open',
+  preDayOpen: 'Pre day open',
   bid: 'Bid',
   ask: 'Ask',
 }
@@ -259,8 +277,81 @@ export function priceAxisShortcuts(
 function levelOptions(saved: Values): Record<PriceLevelKind, Partial<PriceLevelStyle>> {
   const levels = {} as Record<PriceLevelKind, Partial<PriceLevelStyle>>
   for (const kind of PRICE_LEVEL_KINDS) levels[kind] = { line: false, label: false }
-  for (const kind of HOST_LEVELS) levels[kind] = halves(levelShow(saved, kind))
+  const colors: Partial<Record<EngineLevel, string>> = {
+    sessionHigh: '#2962ff',
+    sessionLow: '#2962ff',
+    previousClose: '#525866',
+  }
+  for (const kind of ENGINE_LEVELS) {
+    const c = colors[kind]
+    levels[kind] = c ? { ...halves(levelShow(saved, kind)), color: c } : halves(levelShow(saved, kind))
+  }
   return levels
+}
+
+const sessionStartsCache = new WeakMap<
+  readonly Bar[],
+  { len: number; first: number; last: number; tz: string; starts: number[] }
+>()
+
+function getSessionStarts(bars: readonly Bar[], timezone: string): number[] {
+  if (bars.length === 0) return []
+  const first = bars[0].time
+  const last = bars[bars.length - 1].time
+  const cached = sessionStartsCache.get(bars)
+  if (
+    cached &&
+    cached.len === bars.length &&
+    cached.first === first &&
+    cached.last === last &&
+    cached.tz === timezone
+  ) {
+    return cached.starts
+  }
+  const times = new Array<number>(bars.length)
+  for (let i = 0; i < bars.length; i++) times[i] = bars[i].time
+  const flags = sessionStartFlags(times, timezone)
+  const starts = [0]
+  for (let i = 1; i < bars.length; i++) if (flags[i]) starts.push(i)
+  sessionStartsCache.set(bars, { len: bars.length, first, last, tz: timezone, starts })
+  return starts
+}
+
+function computeOpenLevels(
+  bars: readonly Bar[],
+  anchorTime: number | undefined,
+  timezone: string
+): { todayOpen: number | null; preDayOpen: number | null } {
+  if (bars.length === 0) return { todayOpen: null, preDayOpen: null }
+  const starts = getSessionStarts(bars, timezone)
+  let anchorIdx = bars.length - 1
+  if (anchorTime !== undefined && Number.isFinite(anchorTime)) {
+    if (anchorTime < bars[0].time) anchorIdx = -1
+    else if (anchorTime < bars[bars.length - 1].time) {
+      let lo = 0
+      let hi = bars.length - 1
+      while (lo < hi) {
+        const mid = (lo + hi + 1) >> 1
+        if (bars[mid].time <= anchorTime) lo = mid
+        else hi = mid - 1
+      }
+      anchorIdx = lo
+    }
+  }
+  if (anchorIdx < 0 || starts.length === 0) return { todayOpen: null, preDayOpen: null }
+  let lo = 0
+  let hi = starts.length - 1
+  while (lo < hi) {
+    const mid = (lo + hi + 1) >> 1
+    if (starts[mid] <= anchorIdx) lo = mid
+    else hi = mid - 1
+  }
+  const to = bars[starts[lo]]?.open
+  const po = lo > 0 ? bars[starts[lo - 1]]?.open : undefined
+  return {
+    todayOpen: typeof to === 'number' && Number.isFinite(to) ? to : null,
+    preDayOpen: typeof po === 'number' && Number.isFinite(po) ? po : null,
+  }
 }
 
 /**
@@ -291,9 +382,126 @@ const REPAINT: PriceLevelsOptions = Object.freeze({})
  * every chart it builds: a rebuild destroys the old chart and its primitives
  * with it, so the next `sync` starts afresh.
  */
+/**
+ * Extends `PriceLevels` so the chart only needs a single primitive for both
+ * engine-native levels (`High`, `Low`, `Pre Close`, `Bid`, `Ask`) and host
+ * session-open levels (`Today Open`, `Pre Day Open`) plus their axis-side tags.
+ */
+class HostPriceLevels extends PriceLevels {
+  private saved: Values = {}
+  private tz = 'Asia/Kolkata'
+
+  setHostState(saved: Values, tz: string): void {
+    this.saved = saved
+    this.tz = tz
+  }
+
+  override draw(ctx: CanvasRenderingContext2D, rc: Parameters<PriceLevels['draw']>[1]): void {
+    super.draw(ctx, rc)
+    if (rc.priceAxisSide === 'hidden' || rc.priceAxisWidth <= 0) return
+
+    const badgeLevels: readonly HostLevel[] = [
+      'previousClose',
+      'sessionHigh',
+      'sessionLow',
+      'todayOpen',
+      'preDayOpen',
+    ]
+    if (!badgeLevels.some((k) => levelShow(this.saved, k) !== 'off')) return
+
+    const dpr = rc.dpr || 1
+    const plotW = Math.round(rc.plotWidth * dpr)
+    const plotH = rc.plotHeight * dpr
+    const axisW = Math.round(rc.priceAxisWidth * dpr)
+    const bars = rc.bars?.() ?? []
+    let anchorTime: number | undefined
+    try {
+      anchorTime = rc.dataLayer.indexToTimeFloat(rc.timeScale.visibleRange().to)
+    } catch {
+      anchorTime = undefined
+    }
+    const engineVals = this.values()
+    const openVals =
+      levelShow(this.saved, 'todayOpen') !== 'off' ||
+      levelShow(this.saved, 'preDayOpen') !== 'off'
+        ? computeOpenLevels(bars, anchorTime, this.tz)
+        : { todayOpen: null, preDayOpen: null }
+
+    const items: Array<{
+      kind: HostLevel
+      val: number | null | undefined
+      label: string
+      bg: string
+      customDraw: boolean
+    }> = [
+      { kind: 'sessionHigh', val: engineVals.sessionHigh, label: 'High', bg: '#2962ff', customDraw: false },
+      { kind: 'sessionLow', val: engineVals.sessionLow, label: 'Low', bg: '#2962ff', customDraw: false },
+      { kind: 'previousClose', val: engineVals.previousClose, label: 'Pre Close', bg: '#525866', customDraw: false },
+      { kind: 'todayOpen', val: openVals.todayOpen, label: 'Today Open', bg: '#089981', customDraw: true },
+      { kind: 'preDayOpen', val: openVals.preDayOpen, label: 'Pre Day Open', bg: '#8b5cf6', customDraw: true },
+    ]
+
+    ctx.save()
+    ctx.font = `600 ${Math.round(10 * dpr)}px system-ui, sans-serif`
+    ctx.textBaseline = 'middle'
+    ctx.textAlign = 'center'
+    const padX = 5 * dpr
+    const boxH = 16 * dpr
+    const radius = 3 * dpr
+    const rightEdge = plotW - 4 * dpr
+
+    for (const item of items) {
+      const h = halves(levelShow(this.saved, item.kind))
+      if (!h.line && !h.label) continue
+      if (item.val == null) continue
+      const y = Math.round(rc.priceScale.priceToY(item.val) * dpr)
+      if (!Number.isFinite(y) || y < 0 || y > plotH) continue
+
+      if (item.customDraw && h.line) {
+        const lineY = y + 0.5
+        ctx.strokeStyle = item.bg
+        ctx.lineWidth = Math.max(1, Math.round(dpr))
+        ctx.setLineDash([4 * dpr, 4 * dpr])
+        ctx.beginPath()
+        ctx.moveTo(0, lineY)
+        ctx.lineTo(plotW, lineY)
+        ctx.stroke()
+        ctx.setLineDash([])
+      }
+
+      if (h.label) {
+        if (item.customDraw && rc.priceAxisSide !== 'left' && axisW > 0) {
+          const axisTop = Math.round(y - (18 * dpr) / 2)
+          const axisH = Math.round(18 * dpr)
+          ctx.fillStyle = item.bg
+          ctx.fillRect(plotW, axisTop, axisW, axisH)
+          ctx.fillStyle = '#ffffff'
+          ctx.fillText(rc.priceScale.format(item.val), plotW + axisW / 2, y + 0.5 * dpr)
+        }
+        const textW = ctx.measureText(item.label).width
+        const boxW = Math.round(textW + padX * 2)
+        const x = Math.round(rightEdge - boxW)
+        const top = Math.round(y - boxH / 2)
+        ctx.fillStyle = item.bg
+        ctx.beginPath()
+        ctx.roundRect(x, top, boxW, boxH, radius)
+        ctx.fill()
+        ctx.fillStyle = '#ffffff'
+        ctx.fillText(item.label, x + boxW / 2, y + 0.5 * dpr)
+      }
+    }
+    ctx.restore()
+  }
+}
+
+/**
+ * The levels and the axis side on one chart. One per terminal, re-pointed at
+ * every chart it builds: a rebuild destroys the old chart and its primitives
+ * with it, so the next `sync` starts afresh.
+ */
 export class PriceAxisController {
   private chart: Chart | null = null
-  private levels: PriceLevels | null = null
+  private levels: HostPriceLevels | null = null
   /** Mutated in place by the depth stream; the engine reads it when it paints. */
   private readonly quote: { bid: number | null; ask: number | null } = { bid: null, ask: null }
   /**
@@ -322,19 +530,23 @@ export class PriceAxisController {
     }
     const options = levelOptions(saved)
     const wanted = HOST_LEVELS.some((kind) => levelShow(saved, kind) !== 'off')
+    const tz = chart.timezone()
     if (!wanted) {
       if (this.levels) chart.removePrimitive(this.levels)
       this.levels = null
     } else if (this.levels) {
-      this.levels.setOptions({ levels: options, timezone: chart.timezone() })
+      this.levels.setHostState(saved, tz)
+      this.levels.setOptions({ levels: options, timezone: tz })
     } else {
-      this.levels = new PriceLevels({
+      this.levels = new HostPriceLevels({
         levels: options,
-        timezone: chart.timezone(),
+        timezone: tz,
         quote: this.drawnQuote,
       })
+      this.levels.setHostState(saved, tz)
       chart.addPrimitive(this.levels)
     }
+
     const pane = chart.primaryPaneIndex()
     const side = axisSide(saved)
     const placement = chart.priceAxisPlacement(pane, 'right')
@@ -380,6 +592,11 @@ export class PriceAxisController {
       timezone: chart.timezone(),
       quote: this.drawnQuote(),
     })
+    const openValues = computeOpenLevels(
+      bars,
+      Number.isFinite(anchorTime) ? anchorTime : undefined,
+      chart.timezone()
+    )
     const last = lastPriceLevelFromSeriesStyle({
       priceLineVisible: now['symbol.priceLineVisible'] !== false,
       lastValueVisible: now['symbol.lastValueVisible'] !== false,
@@ -401,11 +618,19 @@ export class PriceAxisController {
                 const h = halves(levelShow(saved, kind))
                 return { line: h.line, tag: h.label }
               })()
+        const available =
+          kind === 'lastPrice'
+            ? bars.length > 0
+            : kind === 'todayOpen'
+              ? openValues.todayOpen !== null
+              : kind === 'preDayOpen'
+                ? openValues.preDayOpen !== null
+                : values[kind] !== null
         return {
           kind,
           label: LEVEL_LABELS[kind],
           ...shown,
-          available: kind === 'lastPrice' ? bars.length > 0 : values[kind] !== null,
+          available,
         }
       }),
     }

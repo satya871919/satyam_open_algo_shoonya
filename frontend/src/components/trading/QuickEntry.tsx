@@ -104,6 +104,32 @@ interface IntervalBoxProps {
  * Drawn over the chart, never beside it, so it costs the plot nothing: it is
  * there for the two seconds it takes to type `15` and press Enter.
  */
+function formatIntervalPreview(
+  text: string,
+  available: readonly string[],
+  canSelectInterval?: (code: string) => boolean
+): string {
+  const result = parseQuickInterval(text, available, canSelectInterval)
+  const code = result.code
+  if (!code) return '5 is 5 minutes, or type 1h, D, W'
+  const m = /^(\d+)([smhdw])$/i.exec(code)
+  if (m) {
+    const n = Number(m[1])
+    const unitMap: Record<string, string> = {
+      s: n === 1 ? 'second' : 'seconds',
+      m: n === 1 ? 'minute' : 'minutes',
+      h: n === 1 ? 'hour' : 'hours',
+      d: n === 1 ? 'day' : 'days',
+      w: n === 1 ? 'week' : 'weeks',
+    }
+    return `${n} ${unitMap[m[2].toLowerCase()] ?? m[2]}`
+  }
+  if (code === 'D' || code === '1D') return '1 day'
+  if (code === 'W' || code === '1W') return '1 week'
+  if (code === 'M' || code === '1M') return '1 month'
+  return code
+}
+
 export function QuickIntervalBox({
   initial,
   available,
@@ -121,13 +147,26 @@ export function QuickIntervalBox({
     node.focus()
     node.setSelectionRange(node.value.length, node.value.length)
   }, [])
+  const preview = formatIntervalPreview(text, available, canSelectInterval)
   return (
     <div
       role="dialog"
       aria-label="Change interval"
-      className="pointer-events-auto absolute left-1/2 top-1/3 z-40 w-60 max-w-[calc(100%-24px)] -translate-x-1/2 rounded-lg border bg-popover p-3 shadow-xl"
+      className="pointer-events-auto absolute left-1/2 top-1/3 z-40 flex w-64 max-w-[calc(100%-24px)] -translate-x-1/2 flex-col items-center rounded-xl border border-border/80 bg-popover px-6 py-5 shadow-2xl"
     >
-      <label htmlFor={id} className="mb-1.5 block text-xs font-medium text-muted-foreground">
+      <div className="mb-3.5 flex items-center gap-1.5">
+        <span className="text-base font-semibold tracking-tight text-foreground">
+          Change interval
+        </span>
+        <span
+          title="Enter to apply: 5 is 5 minutes, or type 1h, D, W"
+          aria-hidden="true"
+          className="inline-flex h-4 w-4 items-center justify-center rounded-full border border-muted-foreground/50 text-[10px] font-medium text-muted-foreground"
+        >
+          i
+        </span>
+      </div>
+      <label htmlFor={id} className="sr-only">
         Interval
       </label>
       <input
@@ -156,16 +195,18 @@ export function QuickIntervalBox({
           if (result.code === undefined) setError(result.error)
           else onApply(result.code)
         }}
-        className="h-8 w-full rounded border border-border bg-background px-2 text-sm tabular-nums outline-none focus:border-primary"
+        className="h-10 w-44 rounded-lg border-2 border-[#2962ff] bg-background/60 px-3 text-center text-base font-medium tabular-nums text-foreground outline-none transition-colors focus:border-[#2962ff]"
       />
       <p
         id={`${id}-hint`}
         role={error ? 'alert' : undefined}
         className={
-          error ? 'mt-1.5 text-xs text-destructive' : 'mt-1.5 text-xs text-muted-foreground'
+          error
+            ? 'mt-2 text-center text-xs text-destructive'
+            : 'mt-2 text-center text-xs text-muted-foreground'
         }
       >
-        {error || 'Enter to apply: 5 is 5 minutes, or type 1h, D, W'}
+        {error || preview}
       </p>
     </div>
   )

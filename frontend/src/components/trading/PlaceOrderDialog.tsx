@@ -163,6 +163,10 @@ export function PlaceOrderDialog({
   const [isDepthExpanded, setIsDepthExpanded] = useState(false)
   const [quantityMode, setQuantityMode] = useState<'lots' | 'shares'>('lots')
   const [lotMultiplier, setLotMultiplier] = useState(1)
+  const [tpEnabled, setTpEnabled] = useState(false)
+  const [tpPrice, setTpPrice] = useState(0)
+  const [slEnabled, setSlEnabled] = useState(false)
+  const [slPrice, setSlPrice] = useState(0)
 
   // Equity trades on either cash exchange. The caller supplies the starting
   // exchange; for NSE/BSE the user may switch, since the same scrip is listed
@@ -206,6 +210,10 @@ export function PlaceOrderDialog({
       // A supplied price survives the LTP fill below, which only writes over 0.
       setFormPrice(initialPrice ?? 0)
       setFormTriggerPrice(initialTriggerPrice ?? 0)
+      setTpEnabled(false)
+      setTpPrice(0)
+      setSlEnabled(false)
+      setSlPrice(0)
       setIsDepthExpanded(false)
       // Cash equity has no lots, so the quantity box must show the real share
       // count. Defaulting to 'lots' here displayed lotMultiplier (1) while
@@ -309,10 +317,43 @@ export function PlaceOrderDialog({
         ...(needsTrigger && { trigger_price: formTriggerPrice }),
       }
 
+      const submitExitOrders = async () => {
+        const exitAction: 'BUY' | 'SELL' = formAction === 'BUY' ? 'SELL' : 'BUY'
+        if (tpEnabled && tpPrice > 0) {
+          const tpOrder: TicketOrder = {
+            exchange: exchange_,
+            symbol,
+            action: exitAction,
+            quantity: formQuantity,
+            pricetype: 'LIMIT',
+            product: formProduct,
+            price: roundToTick(tpPrice, tickSize),
+          }
+          if (place) await place(tpOrder)
+          else await tradingApi.placeOrder({ apikey: apiKey, strategy, ...tpOrder })
+        }
+        if (slEnabled && slPrice > 0) {
+          const slPx = roundToTick(slPrice, tickSize)
+          const slOrder: TicketOrder = {
+            exchange: exchange_,
+            symbol,
+            action: exitAction,
+            quantity: formQuantity,
+            pricetype: 'SL',
+            product: formProduct,
+            price: slPx,
+            trigger_price: slPx,
+          }
+          if (place) await place(slOrder)
+          else await tradingApi.placeOrder({ apikey: apiKey, strategy, ...slOrder })
+        }
+      }
+
       // A caller's own route (the chart's trade feed, which checks the mode
       // before it posts) takes the order whole and reports by throwing.
       if (place) {
         const placed = await place(order)
+        await submitExitOrders()
         onSuccess?.(placed.orderId)
         onOpenChange(false)
         return
@@ -324,6 +365,7 @@ export function PlaceOrderDialog({
       // Note: orderid is at root level, not in data field
       const orderid = (response as unknown as { orderid?: string }).orderid
       if (response.status === 'success' && orderid) {
+        await submitExitOrders()
         // Toast is shown by useSocket when WebSocket receives order update
         onSuccess?.(orderid)
         onOpenChange(false)
@@ -616,6 +658,88 @@ export function PlaceOrderDialog({
               </div>
             </div>
           )}
+          {/* Exits: Optional Take Profit & Stop Loss */}
+          <div className="space-y-2.5 rounded-md border border-border/70 p-2.5">
+            <div className="text-xs font-medium text-muted-foreground">Exits (TP / SL)</div>
+            <div className="grid grid-cols-2 gap-2">
+              <div className="space-y-1.5">
+                <label className="flex cursor-pointer items-center gap-1.5 text-xs">
+                  <input
+                    type="checkbox"
+                    checked={tpEnabled}
+                    onChange={(e) => {
+                      const next = e.target.checked
+                      setTpEnabled(next)
+                      if (next && tpPrice <= 0) {
+                        const base = formPrice > 0 ? formPrice : liveData?.ltp || 0
+                        if (base > 0) {
+                          const offset = Math.max(tickSize * 20, base * 0.02)
+                          setTpPrice(
+                            roundToTick(
+                              formAction === 'BUY' ? base + offset : Math.max(tickSize, base - offset),
+                              tickSize
+                            )
+                          )
+                        }
+                      }
+                    }}
+                    className="accent-emerald-500"
+                  />
+                  <span className="text-emerald-400">Take profit</span>
+                </label>
+                {tpEnabled && (
+                  <Input
+                    type="number"
+                    value={tpPrice}
+                    onChange={(e) => setTpPrice(parseFloat(e.target.value) || 0)}
+                    onBlur={() => setTpPrice(roundToTick(tpPrice, tickSize))}
+                    step={tickSize}
+                    min={0}
+                    placeholder="TP Price"
+                    className="h-8 text-xs"
+                  />
+                )}
+              </div>
+              <div className="space-y-1.5">
+                <label className="flex cursor-pointer items-center gap-1.5 text-xs">
+                  <input
+                    type="checkbox"
+                    checked={slEnabled}
+                    onChange={(e) => {
+                      const next = e.target.checked
+                      setSlEnabled(next)
+                      if (next && slPrice <= 0) {
+                        const base = formPrice > 0 ? formPrice : liveData?.ltp || 0
+                        if (base > 0) {
+                          const offset = Math.max(tickSize * 20, base * 0.02)
+                          setSlPrice(
+                            roundToTick(
+                              formAction === 'BUY' ? Math.max(tickSize, base - offset) : base + offset,
+                              tickSize
+                            )
+                          )
+                        }
+                      }
+                    }}
+                    className="accent-amber-500"
+                  />
+                  <span className="text-amber-400">Stop loss</span>
+                </label>
+                {slEnabled && (
+                  <Input
+                    type="number"
+                    value={slPrice}
+                    onChange={(e) => setSlPrice(parseFloat(e.target.value) || 0)}
+                    onBlur={() => setSlPrice(roundToTick(slPrice, tickSize))}
+                    step={tickSize}
+                    min={0}
+                    placeholder="SL Price"
+                    className="h-8 text-xs"
+                  />
+                )}
+              </div>
+            </div>
+          </div>
         </div>
 
         <DialogFooter className="gap-2 sm:gap-0">

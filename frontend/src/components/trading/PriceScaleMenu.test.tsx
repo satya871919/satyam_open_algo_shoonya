@@ -30,11 +30,10 @@ function open(state = menu()) {
 describe('PriceScaleMenu', () => {
   it('shows each row with its state and its chord', () => {
     open(menu({ mode: 'logarithmic', inverted: true }))
-    expect(screen.getByRole('menuitemcheckbox', { name: /Auto-fit to the data/ })).toHaveAttribute(
-      'aria-checked',
-      'true'
-    )
-    expect(screen.getByRole('menuitemcheckbox', { name: /Auto-fit/ })).toHaveTextContent('Alt+A')
+    expect(
+      screen.getByRole('menuitemcheckbox', { name: /Auto \(fits data to screen\)/ })
+    ).toHaveAttribute('aria-checked', 'true')
+    expect(screen.getByRole('menuitemcheckbox', { name: /Auto/ })).toHaveTextContent('Alt+A')
     expect(screen.getByRole('menuitemcheckbox', { name: /Invert scale/ })).toHaveAttribute(
       'aria-checked',
       'true'
@@ -43,34 +42,36 @@ describe('PriceScaleMenu', () => {
       'aria-checked',
       'true'
     )
-    expect(screen.getByRole('menuitemradio', { name: /Linear/ })).toHaveAttribute(
+    expect(screen.getByRole('menuitemradio', { name: /Regular/ })).toHaveAttribute(
       'aria-checked',
       'false'
     )
     expect(screen.getByRole('menuitemradio', { name: /Percent/ })).toHaveTextContent('Alt+P')
     expect(screen.getByRole('menuitemradio', { name: /Indexed to 100/ })).toHaveTextContent('Alt+1')
     expect(screen.getByRole('menuitem', { name: /Reset price scale/ })).toHaveTextContent('Alt+R')
-    expect(screen.getByRole('menuitem', { name: 'Move scale to the left' })).toBeInTheDocument()
+    expect(screen.getByRole('menuitem', { name: 'Move scale to left' })).toBeInTheDocument()
   })
 
   it('runs a row and lets the menu close', () => {
     const { onCommand, onSettings } = open()
     fireEvent.click(screen.getByRole('menuitemradio', { name: /Percent/ }))
     expect(onCommand).toHaveBeenLastCalledWith({ type: 'mode', mode: 'percentage' }, false)
-    fireEvent.click(screen.getByRole('menuitem', { name: 'Move scale to the left' }))
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Move scale to left' }))
     expect(onCommand).toHaveBeenLastCalledWith({ type: 'side', side: 'left' }, false)
-    fireEvent.click(screen.getByRole('menuitem', { name: 'Chart settings...' }))
+    fireEvent.click(screen.getByRole('menuitem', { name: 'More settings...' }))
     expect(onSettings).toHaveBeenCalledTimes(1)
   })
 
-  it('switches a level half and keeps the menu open', () => {
+  it('switches a level half inside Labels/Lines submenus and keeps the menu open', () => {
     const { onCommand } = open()
-    fireEvent.click(screen.getByRole('button', { name: 'Previous close line' }))
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Lines' }))
+    fireEvent.click(screen.getByRole('menuitemcheckbox', { name: 'Previous close line' }))
     expect(onCommand).toHaveBeenLastCalledWith(
       { type: 'level', kind: 'previousClose', half: 'line', on: true },
       true
     )
-    fireEvent.click(screen.getByRole('button', { name: 'Last price axis tag' }))
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Labels' }))
+    fireEvent.click(screen.getByRole('menuitemcheckbox', { name: 'Last price axis tag' }))
     expect(onCommand).toHaveBeenLastCalledWith(
       { type: 'level', kind: 'lastPrice', half: 'tag', on: false },
       true
@@ -79,10 +80,12 @@ describe('PriceScaleMenu', () => {
 
   it('greys a level with no data, and still lets one already on be switched off', () => {
     const { onCommand } = open()
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Lines' }))
     expect(screen.getAllByText('no data')).toHaveLength(2)
-    expect(screen.getByRole('button', { name: 'Bid line' })).toBeDisabled()
-    expect(screen.getByRole('button', { name: 'Ask line' })).toBeDisabled()
-    const askTag = screen.getByRole('button', { name: 'Ask axis tag' })
+    expect(screen.getByRole('menuitemcheckbox', { name: 'Bid line' })).toBeDisabled()
+    expect(screen.getByRole('menuitemcheckbox', { name: 'Ask line' })).toBeDisabled()
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Labels' }))
+    const askTag = screen.getByRole('menuitemcheckbox', { name: 'Ask axis tag' })
     expect(askTag).toBeEnabled()
     fireEvent.click(askTag)
     expect(onCommand).toHaveBeenLastCalledWith(

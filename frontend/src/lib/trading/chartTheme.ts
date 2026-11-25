@@ -95,9 +95,9 @@ const token = (name: string) => rasterize(`var(${name})`)
  */
 export const resolveCssColor = (cssColor: string): string => rasterize(cssColor)
 
-/** True when the app is in live light mode (analyzer is always a dark palette). */
-export function isLightTheme(mode: ThemeMode, appMode: AppMode): boolean {
-  return appMode === 'live' && mode === 'light'
+/** True when the app is in light mode (supported in both live and analyzer modes). */
+export function isLightTheme(mode: ThemeMode, _appMode: AppMode): boolean {
+  return mode === 'light'
 }
 
 /**
@@ -112,12 +112,12 @@ export function isLightTheme(mode: ThemeMode, appMode: AppMode): boolean {
  * violet chrome, and an up candle must mean the same thing in both.
  */
 export const CANDLE_PAIRS = {
-  dark: { up: '#14b887', down: '#f0525f' },
+  dark: { up: '#089981', down: '#f23645' },
   light: { up: '#00855d', down: '#d42f34' },
 } as const
 
 /** How far the grid sits from the background towards the text colour. */
-const GRID_STEP = { dark: 0.06, light: 0.055 }
+const GRID_STEP = { dark: 0.09, light: 0.055 }
 
 /** WCAG contrast ratio of two colours this module can read, or 0 when it cannot. */
 export function contrastRatio(a: string, b: string): number {
@@ -160,10 +160,11 @@ export function buildChartTheme(mode: ThemeMode, appMode: AppMode): ChartTheme {
   const foreground = token('--foreground')
   const accent = token('--primary')
   // Printed on the last-price tag and on the crosshair's pills alike.
-  const tagText = light ? '#ffffff' : background
-  // The accent pill only where its text can be read on it; an accent theme
-  // light enough to fail falls back to the text colour, which never does.
-  const pill = contrastRatio(accent, tagText) >= 4.5 ? accent : foreground
+  const tagText = '#ffffff'
+  // The accent pill only where its text can be read on it; a light accent
+  // falls back to a dark neutral pill so white text stays crisp and readable.
+  const pill =
+    contrastRatio(accent, tagText) >= 4.5 ? accent : light ? '#1e222d' : '#363a45'
   return {
     ...base,
     background,
