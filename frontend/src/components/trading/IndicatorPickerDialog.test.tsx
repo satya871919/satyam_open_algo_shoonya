@@ -142,8 +142,8 @@ describe('the trader\'s own studies', () => {
   /** The shipped library, plus two studies written in the scripts panel. */
   const WITH_MINE: CatalogEntry[] = [
     ...CATALOG,
-    { id: 'openscript:supertrend', name: 'Supertrend', category: 'OpenScript' },
-    { id: 'openscript:indicator-table', name: 'Indicator table', category: 'OpenScript' },
+    { id: 'pinescript:supertrend', name: 'Supertrend', category: 'Pine Script' },
+    { id: 'pinescript:indicator-table', name: 'Indicator table', category: 'Pine Script' },
   ]
 
   it('gives them a section of their own, above the library', async () => {
@@ -162,7 +162,7 @@ describe('the trader\'s own studies', () => {
     // seen everything once, and the library's counts stop describing what
     // shipped.
     renderPicker({ catalog: WITH_MINE })
-    expect(screen.queryByRole('button', { name: /^OpenScript, / })).toBeNull()
+    expect(screen.queryByRole('button', { name: /^Pine Script, / })).toBeNull()
   })
 
   it('keeps them out of the library categories they happen to name', async () => {
@@ -170,7 +170,7 @@ describe('the trader\'s own studies', () => {
     // and the Trend row still counts three because that is what shipped.
     const labelled: CatalogEntry[] = [
       ...CATALOG,
-      { id: 'openscript:mine', name: 'My trend study', category: 'Trend' },
+      { id: 'pinescript:mine', name: 'My trend study', category: 'Trend' },
     ]
     renderPicker({ catalog: labelled })
     expect(screen.getByRole('button', { name: /Trend, 3 indicators/ })).toBeInTheDocument()

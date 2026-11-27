@@ -1,5 +1,5 @@
 /**
- * Backtesting a saved OpenScript strategy, in the browser, over history.
+ * Backtesting a saved Pine Script strategy, in the browser, over history.
  *
  * **Why there is no server call here beyond fetching bars.** The engine that
  * runs a compiled program is the package this page already imports to compile
@@ -51,8 +51,8 @@ import type {
   RunStop,
 } from './backtestWorkerProtocol'
 import { factsFor, type InstrumentFacts } from './instrumentFacts'
-import { compileSource, type EditorDiagnostic } from './openscriptFiles'
-import { languageInterval } from './openscriptIntervals'
+import { compileSource, type EditorDiagnostic } from './pinescriptFiles'
+import { languageInterval } from './pinescriptIntervals'
 
 export type { RunInstrument, RunStop } from './backtestWorkerProtocol'
 

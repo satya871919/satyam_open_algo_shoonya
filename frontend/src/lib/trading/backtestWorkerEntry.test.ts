@@ -23,7 +23,7 @@ vi.mock('openalgo-script', () => ({
 await import('./backtestWorkerEntry')
 
 const MESSAGE: BacktestMessage = {
-  program: { openscript: {} },
+  program: { pinescript: {} },
   bars: [{ time: 1_700_000_000_000, open: 1, high: 1, low: 1, close: 1, volume: 1, oi: null }],
   contract: {
     currency: 'INR',

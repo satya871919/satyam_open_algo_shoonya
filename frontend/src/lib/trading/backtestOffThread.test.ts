@@ -14,7 +14,7 @@ const post = vi.fn()
 vi.mock('@/api/client', () => ({ apiClient: { post: (...args: unknown[]) => post(...args) } }))
 
 const compileSource = vi.fn()
-vi.mock('./openscriptFiles', () => ({
+vi.mock('./pinescriptFiles', () => ({
   compileSource: (...args: unknown[]) => compileSource(...args),
 }))
 
@@ -88,7 +88,7 @@ beforeEach(() => {
   compileSource.mockResolvedValue({
     ok: true,
     kind: 'strategy',
-    program: '{"openscript":{}}',
+    program: '{"pinescript":{}}',
     diagnostics: [],
   })
   post.mockImplementation(async (url: string) => {
@@ -211,7 +211,7 @@ describe('what is handed across', () => {
       inputs: Record<string, unknown>
     }
 
-    expect(sent.program).toEqual({ openscript: {} })
+    expect(sent.program).toEqual({ pinescript: {} })
     // Seconds from the history API, milliseconds for the engine.
     expect(sent.bars[0].time).toBe(1_700_000_000_000)
     expect(sent.contract.lotSize).toBe(1)

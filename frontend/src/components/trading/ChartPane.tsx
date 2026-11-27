@@ -237,11 +237,11 @@ interface Props {
   /** Reports the current chart generation's object inventory. */
   onObjectsChange?(paneId: string, objects: ChartObjects | null): void
   /**
-   * The braces button on an OpenScript study's legend row was pressed: open
+   * The braces button on an Pine Script study's legend row was pressed: open
    * this file's source. The page owns the panel that shows it, so the pane
    * passes it straight up rather than rendering anything itself.
    */
-  onOpenScriptSource?(file: string): void
+  onPineScriptSource?(file: string): void
   /** This pane's alert controller, or null once its chart has gone. */
   onAlertsReady?(paneId: string, view: AlertsView | null): void
   /** An alert fired on this pane. */
@@ -295,7 +295,7 @@ export function ChartPane({
   onIntervalChange,
   onTerminalChange,
   onObjectsChange,
-  onOpenScriptSource,
+  onPineScriptSource,
   onAlertsReady,
   onAlertFired,
   onAlertsChanged,
@@ -337,8 +337,8 @@ export function ChartPane({
   terminalCbRef.current = onTerminalChange
   const objectsCbRef = useRef(onObjectsChange)
   objectsCbRef.current = onObjectsChange
-  const scriptSourceCbRef = useRef(onOpenScriptSource)
-  scriptSourceCbRef.current = onOpenScriptSource
+  const scriptSourceCbRef = useRef(onPineScriptSource)
+  scriptSourceCbRef.current = onPineScriptSource
   const alertsCbRef = useRef({ onAlertsReady, onAlertFired, onAlertsChanged })
   alertsCbRef.current = { onAlertsReady, onAlertFired, onAlertsChanged }
   // The flag as it stands when the terminal boots; the effect below tracks it
@@ -593,7 +593,7 @@ export function ChartPane({
       onAlertsChanged: () => current && alertsCbRef.current.onAlertsChanged?.(),
       onChartSettings: (req) => current && setChartSettings(req),
       onObjectsChange: (objects) => current && objectsCbRef.current?.(paneId, objects),
-      onOpenScriptSource: (file) => current && scriptSourceCbRef.current?.(file),
+      onPineScriptSource: (file) => current && scriptSourceCbRef.current?.(file),
       onDrawSelect: (sel) => current && setDrawSel(sel),
       onDrawRemoveAll: (req) => current && setRemoveAll(req),
       // The legend readout is a second switch for the same thing as the context
@@ -790,7 +790,7 @@ export function ChartPane({
    * **A `catalog.length` guard here used to make this run once per page load**,
    * which quietly defeated the tier below it. `terminal.indicatorCatalog` calls
    * `loadIndicators`, which re-reads `strategies/indicators/` and
-   * `strategies/openscript/` on purpose and skips what it has already seen, so
+   * `strategies/pinescript/` on purpose and skips what it has already seen, so
    * that a script saved from the panel appears on the next picker open rather
    * than after a reload. That is what its comments say it is for, and both
    * loaders are keyed on modification time to make the repeat call cheap. None

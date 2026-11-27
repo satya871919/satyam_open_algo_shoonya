@@ -20,7 +20,7 @@
  * on the way into a dialog.
  */
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { fileForScriptId } from '@/lib/trading/openscriptFiles'
+import { fileForScriptId } from '@/lib/trading/pinescriptFiles'
 import { cn } from '@/lib/utils'
 
 export interface CatalogEntry {

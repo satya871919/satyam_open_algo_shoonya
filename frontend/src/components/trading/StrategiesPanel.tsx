@@ -46,12 +46,12 @@ import {
   saveSettings,
   startStrategy,
   strategyPositions,
-} from '@/api/openscriptRunner'
+} from '@/api/pinescriptRunner'
 import { type PriceableItem, useLivePrice } from '@/hooks/useLivePrice'
 import { useOrderEventRefresh } from '@/hooks/useOrderEventRefresh'
 import { type InputDeclaration, inputsOf, settingsFromForm } from '@/lib/trading/backtestInputs'
 import { deploymentsOf, matches } from '@/lib/trading/deployments'
-import { compileSource, kindOf, listScripts, readScript } from '@/lib/trading/openscriptFiles'
+import { compileSource, kindOf, listScripts, readScript } from '@/lib/trading/pinescriptFiles'
 import { type PositionSummary, summaryOf } from '@/lib/trading/strategyPosition'
 import { quantityNote, quantityOf } from '@/lib/trading/strategyQuantity'
 import { cn } from '@/lib/utils'

@@ -139,7 +139,7 @@ function factsAnswer() {
 /** The facts route answering, or not, and the history always answering. */
 function platform(factsUp: boolean, bars: () => unknown[] = history) {
   const fetchMock = vi.fn(async (url: string) => {
-    if (factsUp && url.startsWith('/openscript/instrument')) {
+    if (factsUp && url.startsWith('/pinescript/instrument')) {
       return { ok: true, json: async () => factsAnswer() } as unknown as Response
     }
     return { ok: false, json: async () => ({}) } as unknown as Response

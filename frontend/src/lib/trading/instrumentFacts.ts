@@ -1,5 +1,5 @@
 /**
- * What the platform knows about an instrument, in the shape the OpenScript
+ * What the platform knows about an instrument, in the shape the Pine Script
  * engine reads.
  *
  * The engine takes one record about the instrument a script runs on
@@ -10,7 +10,7 @@
  * bar `vwap` restarts on) is derived from that session and that zone and from
  * nothing else, so a chart that states neither gets all of them absent, with
  * nothing on screen to say why. The page cannot know any of this on its own;
- * `/openscript/instrument` answers it from the master contract and the market
+ * `/pinescript/instrument` answers it from the master contract and the market
  * calendar, whose timings an admin can edit.
  *
  * `symbol` and `interval` are left off, because the chart supplies both and a
@@ -64,7 +64,7 @@ export const RETRY_AFTER_MS = 30_000
 /** A request that has not answered by now is treated as failed, so it can be retried. */
 const REQUEST_TIMEOUT_MS = 15_000
 
-const URL_BASE = '/openscript/instrument'
+const URL_BASE = '/pinescript/instrument'
 
 /** `host-interface.md` 4.1: the seven words, and a host with none of them states nothing. */
 const INSTRUMENT_TYPES = new Set([

@@ -16,7 +16,7 @@ vi.mock('@/lib/trading/backtestRun', () => ({
   runBacktest: (...args: unknown[]) => runBacktest(...args),
 }))
 
-vi.mock('@/lib/trading/openscriptFiles', () => ({
+vi.mock('@/lib/trading/pinescriptFiles', () => ({
   listScripts: async () => [{ file: 'probe.oscript', mtime: 1, bytes: 1 }],
   readScript: async () => 'version 1\nstrategy("probe")\n',
   kindOf: async () => 'strategy',

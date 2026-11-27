@@ -2,6 +2,7 @@ import {
   Activity,
   BarChart3,
   Briefcase,
+  Code2,
   Layers,
   LineChart,
   Sparkles,
@@ -25,6 +26,7 @@ import {
 } from '@/components/strategy-builder/ManualLegBuilder'
 import MultiStrikeOITab from '@/components/strategy-builder/MultiStrikeOITab'
 import { PayoffChart } from '@/components/strategy-builder/PayoffChart'
+import { PineScriptTab } from '@/components/strategy-builder/PineScriptTab'
 import { PnLTab } from '@/components/strategy-builder/PnLTab'
 import { PositionsPanel } from '@/components/strategy-builder/PositionsPanel'
 import { SaveStrategyDialog } from '@/components/strategy-builder/SaveStrategyDialog'
@@ -1917,6 +1919,13 @@ export default function StrategyBuilder() {
                     <Layers className="mr-1.5 h-3.5 w-3.5" />
                     Multi Strike OI
                   </TabsTrigger>
+                  <TabsTrigger
+                    value="pinescript"
+                    className="rounded-lg px-4 text-xs font-semibold data-[state=active]:bg-gradient-to-br data-[state=active]:from-background data-[state=active]:to-muted/60 data-[state=active]:shadow-sm"
+                  >
+                    <Code2 className="mr-1.5 h-3.5 w-3.5" />
+                    Pine Script
+                  </TabsTrigger>
                   </TabsList>
                 </div>
                 <div className="flex shrink-0 items-center gap-2">
@@ -1996,6 +2005,14 @@ export default function StrategyBuilder() {
                     Resolving the underlying market-data reference...
                   </div>
                 )}
+              </TabsContent>
+              <TabsContent value="pinescript" className="pt-4">
+                <PineScriptTab
+                  underlying={selectedUnderlying}
+                  exchange={selectedExchange}
+                  expiry={selectedExpiry}
+                  legs={legs}
+                />
               </TabsContent>
             </Tabs>
 

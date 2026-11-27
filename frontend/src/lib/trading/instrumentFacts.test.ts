@@ -1,5 +1,5 @@
 /**
- * The instrument facts the chart hands the OpenScript engine.
+ * The instrument facts the chart hands the Pine Script engine.
  *
  * Four behaviours, each of which a chart depends on without being able to see:
  * one request per instrument however many studies ask at once; an answer kept
@@ -94,7 +94,7 @@ describe('asking for an instrument', () => {
     expect(facts).not.toHaveProperty('interval')
     expect(fetchMock).toHaveBeenCalledTimes(1)
     const [url, init] = fetchMock.mock.calls[0] ?? []
-    expect(url).toBe('/openscript/instrument?symbol=BHEL&exchange=NSE')
+    expect(url).toBe('/pinescript/instrument?symbol=BHEL&exchange=NSE')
     // JSON asked for, so an expired session is a 401 and not a login page.
     expect((init?.headers as Record<string, string>).Accept).toBe('application/json')
   })
@@ -134,7 +134,7 @@ describe('asking for an instrument', () => {
 
     expect(fetchMock).toHaveBeenCalledTimes(3)
     expect(fetchMock.mock.calls[2]?.[0]).toBe(
-      '/openscript/instrument?symbol=NIFTY+Alpha+50&exchange=NSE_INDEX'
+      '/pinescript/instrument?symbol=NIFTY+Alpha+50&exchange=NSE_INDEX'
     )
   })
 

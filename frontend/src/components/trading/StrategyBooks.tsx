@@ -25,7 +25,7 @@ import {
   strategyOrderbook,
   strategyPositions,
   strategyTradebook,
-} from '@/api/openscriptRunner'
+} from '@/api/pinescriptRunner'
 import { useOrderEventRefresh } from '@/hooks/useOrderEventRefresh'
 import { cn } from '@/lib/utils'
 

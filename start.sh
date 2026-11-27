@@ -362,7 +362,7 @@ if [ "$OPENALGO_WORKER_REQUESTED" = "gthread" ] && [ -f /app/install/openalgo-gu
     trap 'gthread_forward INT' INT
 
     # A stop gets 30 seconds for open requests, beside the strategies and
-    # OpenScript runs stopping. Docker kills a container 10 seconds after the
+    # PineScript runs stopping. Docker kills a container 10 seconds after the
     # stop signal unless docker-compose.yaml sets stop_grace_period, so the
     # gthread switch steps require stop_grace_period: 45s. See
     # docs/gthread/README.md.

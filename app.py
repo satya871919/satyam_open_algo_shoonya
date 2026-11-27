@@ -67,8 +67,8 @@ from blueprints.logging import logging_bp
 from blueprints.master_contract_status import master_contract_status_bp
 from blueprints.oiprofile import oiprofile_bp
 from blueprints.oitracker import oitracker_bp
-from blueprints.openscript import openscript_bp
-from blueprints.openscript_runner import openscript_runner_bp
+from blueprints.pinescript import pinescript_bp
+from blueprints.pinescript_runner import pinescript_runner_bp
 from blueprints.orders import orders_bp
 from blueprints.platforms import platforms_bp
 from blueprints.playground import playground_bp
@@ -273,8 +273,8 @@ def create_app():
     app.register_blueprint(websocket_bp)
     app.register_blueprint(chart_test_bp)
     app.register_blueprint(custom_indicators_bp)
-    app.register_blueprint(openscript_bp)
-    app.register_blueprint(openscript_runner_bp)
+    app.register_blueprint(pinescript_bp)
+    app.register_blueprint(pinescript_runner_bp)
     app.register_blueprint(pnltracker_bp)
     app.register_blueprint(python_strategy_bp)
     app.register_blueprint(telegram_bp)

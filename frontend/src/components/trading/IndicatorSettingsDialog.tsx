@@ -15,8 +15,8 @@
  * the sentence saying what the number actually does has nowhere else to go.
  *
  * One place where a study has to be told apart from a JavaScript indicator: an
- * OpenScript interval input takes only the language's timeframes, so its
- * choices are rebuilt from the terminal's (see `openscriptIntervals.ts`).
+ * Pine Script interval input takes only the language's timeframes, so its
+ * choices are rebuilt from the terminal's (see `pinescriptIntervals.ts`).
  *
  * On a transformed chart (Heikin Ashi, Renko, range bars, line break) the
  * Inputs tab leads with Compute on: the elements drawn, or the raw bars under
@@ -34,8 +34,8 @@ import {
   useState,
 } from 'react'
 import { numberProblem, pickedPrice } from '@/lib/trading/inputValidation'
-import { isScriptInstance } from '@/lib/trading/openscriptFiles'
-import { scriptIntervalChoices } from '@/lib/trading/openscriptIntervals'
+import { isScriptInstance } from '@/lib/trading/pinescriptFiles'
+import { scriptIntervalChoices } from '@/lib/trading/pinescriptIntervals'
 import type { IndicatorField, IndicatorSettingsRequest, InputPick } from '@/lib/trading/terminal'
 import { cn } from '@/lib/utils'
 import { PlotStyleRow } from './PlotStyleRow'
@@ -61,7 +61,7 @@ interface Props {
   /**
    * The chart's own interval, as the terminal holds it (`5m`, `D`).
    *
-   * What "Chart interval" means for an OpenScript study, which cannot store an
+   * What "Chart interval" means for an Pine Script study, which cannot store an
    * empty interval the way a JavaScript indicator can. Without it that choice
    * is left out rather than guessed.
    */
@@ -147,7 +147,7 @@ export function IndicatorSettingsDialog({
   const script = req !== null && isScriptInstance(req.instanceId)
 
   /**
-   * Stored values, with every OpenScript interval spelled the language's way.
+   * Stored values, with every Pine Script interval spelled the language's way.
    *
    * An empty interval, which is what "Chart interval" stored before, and a
    * broker code such as `D` are both refused at load with OS6001, so a study
@@ -541,7 +541,7 @@ export function SettingsField({
   // options with the intervals this broker actually serves, so a study can
   // never be handed a timeframe the feed cannot answer. Falling back to the
   // chart's own interval (the empty value) is what an unfilled list means.
-  // An OpenScript study arrives here with its options already rebuilt, since
+  // An Pine Script study arrives here with its options already rebuilt, since
   // the language takes neither the empty value nor a code such as `D`.
   if (field.type === 'source' || field.type === 'select' || field.type === 'interval') {
     const opts = field.options

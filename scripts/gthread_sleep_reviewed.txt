@@ -18,4 +18,4 @@ services/whatsapp_bot_service.py::WhatsAppBotService._run_pair  # benign: its ow
 services/agent/stream.py::_pump  # benign: under gthread at most 6 agent streams are admitted and a turn ends after 15 minutes; every runtime ends the stream when shutdown begins
 
 # --- Short bounded waits on a request thread -------------------------------
-services/openscript_commands.py::_across_processes  # benign: polls a non-blocking lock on the OpenScript command file every 10 ms for at most 2 s, holding no other lock; a change holds it for milliseconds, so a Stop waits only behind another process's change
+services/pinescript_commands.py::_across_processes  # benign: polls a non-blocking lock on the PineScript command file every 10 ms for at most 2 s, holding no other lock; a change holds it for milliseconds, so a Stop waits only behind another process's change

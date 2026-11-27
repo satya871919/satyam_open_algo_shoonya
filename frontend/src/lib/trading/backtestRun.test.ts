@@ -13,7 +13,7 @@ const post = vi.fn()
 vi.mock('@/api/client', () => ({ apiClient: { post: (...args: unknown[]) => post(...args) } }))
 
 const compileSource = vi.fn()
-vi.mock('./openscriptFiles', () => ({
+vi.mock('./pinescriptFiles', () => ({
   compileSource: (...args: unknown[]) => compileSource(...args),
 }))
 
@@ -73,7 +73,7 @@ function compiles(extra: Record<string, unknown> = {}) {
   compileSource.mockResolvedValue({
     ok: true,
     kind: 'strategy',
-    program: '{"openscript":{}}',
+    program: '{"pinescript":{}}',
     diagnostics: [],
     ...extra,
   })
@@ -264,7 +264,7 @@ describe('a run that works', () => {
 
     await runBacktest(aRequest())
 
-    expect(backtest.mock.calls[0][0]).toEqual({ openscript: {} })
+    expect(backtest.mock.calls[0][0]).toEqual({ pinescript: {} })
   })
 })
 

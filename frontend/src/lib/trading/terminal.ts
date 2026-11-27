@@ -289,8 +289,13 @@ import {
   legendToneStyle,
   lotInfoText,
 } from './legend'
-import { fileForScriptId, isScriptInstance } from './openscriptFiles'
-import { loadOpenScriptStudies, SCRIPT_ALERT_EVENT } from './openscriptStudies'
+import { fileForScriptId, isScriptInstance } from './pinescriptFiles'
+import { loadPineScriptStudies, SCRIPT_ALERT_EVENT } from './pinescriptStudies'
+import {
+  OI_PROFILE_INDICATOR_ID,
+  OIProfileController,
+  OPEN_INTEREST_DESCRIPTOR,
+} from './oiProfileIndicator'
 import { profileIntervalSupported, selectProfileInterval } from './profileIntervals'
 import { ProfileLayer, type ProfileMenuAction } from './profileLayer'
 import {
@@ -457,13 +462,13 @@ export interface TerminalCallbacks {
    */
   onIndicatorSettings?(req: IndicatorSettingsRequest): void
   /**
-   * The braces button on an OpenScript study's legend row was clicked: show
+   * The braces button on an Pine Script study's legend row was clicked: show
    * this file's source.
    *
    * Only fires for a study the trader wrote. A built-in has no file behind it,
    * and the chart draws no button for one.
    */
-  onOpenScriptSource?(file: string): void
+  onPineScriptSource?(file: string): void
   /**
    * Alerts were asked for. The host renders the dialog and drives the handle.
    *
@@ -779,7 +784,7 @@ function toField(f: { key: string; type: string; label?: string; group?: string 
     type: f.type,
     label: f.label ?? f.key,
     group: f.group,
-    // An OpenScript declaration's help text. Dropped here, the dialog's line
+    // An Pine Script declaration's help text. Dropped here, the dialog's line
     // of help under the row had nothing to show in the app.
     tooltip: (f as { tooltip?: string }).tooltip,
     options: (f as { options?: { label: string; value: unknown }[] }).options,
@@ -1098,7 +1103,7 @@ export class TradingTerminal {
   /** The backtest's marker layer, made once and refilled per run. */
   private btMarkers: SeriesMarkers | null = null
   /**
-   * The study the backtest marks belong to (a strategy's OpenScript id), whether
+   * The study the backtest marks belong to (a strategy's Pine Script id), whether
    * it has been seen on this chart yet, and who to tell when the marks go. The
    * Backtest action adds the study and starts the run together, and the study
    * registers a moment later, so the marks are only taken down once the study
@@ -1277,6 +1282,7 @@ export class TradingTerminal {
   /** The refusal last said for each study, so a rebuild does not say it again. */
   private readonly reportedRefusals = new Map<string, string>()
   private profileLayer: ProfileLayer | null = null
+  private oiProfile: OIProfileController | null = null
   private availableIntervals: string[] = ['1m', '5m', '15m', '1h', 'D']
   /** The bottom bar's preset range for this pane, kept while its interval holds. */
   private rangeChoice: RangeChoice | null = null
@@ -1568,6 +1574,16 @@ export class TradingTerminal {
     this.legendEl = opts.legendEl
     this.wireLegendActions()
     this.getTheme = opts.getTheme
+    this.oiProfile = new OIProfileController({
+      container: this.container,
+      apiKey: this.apiKey,
+      getChart: () => this.chart,
+      getSymbol: () => (this.sym ? { symbol: this.sym.symbol, exchange: this.sym.exchange } : null),
+      isDark: () => {
+        const { mode, appMode } = this.getTheme()
+        return mode === 'dark' || appMode === 'analyzer'
+      },
+    })
     this.cb = opts.callbacks
     this.sk = opts.storageKey || 'oa-trading'
     this.preferences = initial ? createWorkspacePanePreferences(initial, this.sk) : opts.preferences
@@ -2589,6 +2605,7 @@ export class TradingTerminal {
     this.detachObjects()
     this.profileLayer?.dispose()
     this.profileLayer = null
+    this.oiProfile?.detachPrimitive()
     // Snapshot drawings before the chart they live on goes away, and hand them
     // to their own instrument before the next chart restores any.
     this.detachDrawing()
@@ -3025,7 +3042,7 @@ export class TradingTerminal {
     // which is what a built-in study should do if a button ever reaches here.
     this.chart.on('indicatorSource', (p) => {
       const file = fileForScriptId(String((p as { indicatorId?: unknown }).indicatorId ?? ''))
-      if (file !== null) this.cb.onOpenScriptSource?.(file)
+      if (file !== null) this.cb.onPineScriptSource?.(file)
     })
     // The on-chart legend's x removes an indicator without going through this
     // class. Without this the toolbar list went stale, and worse, the tracked
@@ -4163,6 +4180,8 @@ export class TradingTerminal {
     // The built-in tier is a static bundle: import it once.
     if (!this.indicatorsLoaded) {
       await import('openalgo-charts/indicators')
+      const { registerIndicator } = await import('openalgo-charts')
+      registerIndicator(OPEN_INTEREST_DESCRIPTOR)
       this.indicatorsLoaded = true
     }
     // The user's own modules are re-checked on every call, which is what makes a
@@ -4182,13 +4201,13 @@ export class TradingTerminal {
     // there is nothing anywhere to say why.
     for (const err of custom.errors) this.toast(`${err.file}: ${err.message}`, 'err')
 
-    // The trader's OpenScript sources, compiled here and registered the same
+    // The trader's Pine Script sources, compiled here and registered the same
     // way. After the custom modules so that neither tier can be shadowed by a
     // half-loaded one above it, and on every call for the same reason the
     // custom loader runs on every call: a script saved from the panel appears
     // on the next picker open rather than after a reload. A script already
     // compiled at its current modification time costs nothing.
-    const studies = await loadOpenScriptStudies()
+    const studies = await loadPineScriptStudies()
     // A script that will not compile is the one thing a trader cannot discover
     // any other way: there is no build step between saving and running, so this
     // toast is the compiler's only route to the person who wrote the mistake.
@@ -4203,13 +4222,15 @@ export class TradingTerminal {
    * held every saved indicator, built-in ones included, back for seconds on each
    * reload. A restore needs the built-in tier, the user modules that provide the
    * ids it holds (the loader knows which from what those modules registered on
-   * earlier loads), and the OpenScript studies only when the layout holds one.
+   * earlier loads), and the Pine Script studies only when the layout holds one.
    * The rest of the catalogue follows in the background: see
    * completeIndicatorCatalogue.
    */
   private async loadIndicatorsFor(ids: readonly string[]): Promise<void> {
     if (!this.indicatorsLoaded) {
       await import('openalgo-charts/indicators')
+      const { registerIndicator } = await import('openalgo-charts')
+      registerIndicator(OPEN_INTEREST_DESCRIPTOR)
       this.indicatorsLoaded = true
     }
     if (ids.length === 0) return
@@ -4221,7 +4242,7 @@ export class TradingTerminal {
     for (const err of custom.errors) this.toast(`${err.file}: ${err.message}`, 'err')
 
     if (ids.some((id) => fileForScriptId(id) !== null)) {
-      const studies = await loadOpenScriptStudies()
+      const studies = await loadPineScriptStudies()
       for (const err of studies.errors) this.toast(`${err.file}: ${err.message}`, 'err')
     }
   }
@@ -4489,7 +4510,7 @@ export class TradingTerminal {
     // A script's alert that waits for its bar to close. The chart judges a
     // study's alerts once, on a bar's first tick, when such an alert is still
     // withheld, so it never fired live; the study announces the closed bar
-    // itself (`openscriptStudies.hostedStudy`) and it is delivered like any
+    // itself (`pinescriptStudies.hostedStudy`) and it is delivered like any
     // other, including being held back while replay or a workspace change owns
     // the chart.
     this.offAlerts.push(chart.on(SCRIPT_ALERT_EVENT, deliver))
@@ -4890,9 +4911,9 @@ export class TradingTerminal {
    * A study the chart runs (every built-in, and the Timeframe of the 29 that
    * have one since 2.6.0) is offered only the codes the chart can fold to. A
    * broker's monthly `M` is not one, and a study set to it would be refused and
-   * draw nothing. An OpenScript study reads its intervals in its own language,
+   * draw nothing. An Pine Script study reads its intervals in its own language,
    * which does have a month, so its list is left whole for the dialog to
-   * respell (`openscriptIntervals.ts`).
+   * respell (`pinescriptIntervals.ts`).
    */
   private fillIntervalOptions(
     field: IndicatorField,
@@ -5262,6 +5283,7 @@ export class TradingTerminal {
       this.cb.onIndicatorsChange?.(announced)
     }
     this.dropBacktestMarksWithoutTheirStudy(next)
+    this.oiProfile?.sync()
   }
 
   /**
@@ -5767,6 +5789,7 @@ export class TradingTerminal {
     values(): Record<string, unknown>
     series(plotKey: string): unknown
   }): void {
+    if (inst.indicatorId === OI_PROFILE_INDICATOR_ID) return
     const loaded = this.rawBars.length
     if (!loaded) return
     const cols = Object.entries(inst.values())
@@ -7348,6 +7371,7 @@ export class TradingTerminal {
     // loading together rather than one pane at a time. The group's own echo
     // guard stops this coming straight back at us.
     if (this.link && this.chart) this.link.setSymbol(this.chart, `${exchange}:${this.sym.symbol}`)
+    this.oiProfile?.onSymbolChanged()
 
     // history
     const to = this.gridNow()
@@ -8496,6 +8520,8 @@ export class TradingTerminal {
     }
     this.profileLayer?.dispose()
     this.profileLayer = null
+    this.oiProfile?.destroy()
+    this.oiProfile = null
     try {
       this.chart?.destroy()
     } catch {

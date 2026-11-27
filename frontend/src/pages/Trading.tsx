@@ -107,7 +107,7 @@ import {
   tracksTemplate,
   writeGridWeights,
 } from '@/lib/trading/gridSizes'
-import { idForScript } from '@/lib/trading/openscriptFiles'
+import { idForScript } from '@/lib/trading/pinescriptFiles'
 import type { PreparedChartGrid } from '@/lib/trading/preparedGrid'
 import type {
   AlertFire,
@@ -1661,7 +1661,7 @@ function TradingWorkspace({ account }: { account: string | null }) {
                           onObjectsChange={(id, objects) => {
                             if (!visibleGrid.current) noteObjects(id, objects)
                           }}
-                          onOpenScriptSource={showScriptSource}
+                          onPineScriptSource={showScriptSource}
                           onAlertsReady={(id, view) => {
                             if (!visibleGrid.current) noteAlerts(id, view)
                           }}
@@ -1713,7 +1713,7 @@ function TradingWorkspace({ account }: { account: string | null }) {
                       onSymbolChange={noteSymbol}
                       onIntervalChange={noteChartChanged}
                       onObjectsChange={noteObjects}
-                      onOpenScriptSource={showScriptSource}
+                      onPineScriptSource={showScriptSource}
                       onAlertsReady={noteAlerts}
                       onAlertFired={noteAlertFired}
                       onAlertsChanged={() => setAlertRevision((n) => n + 1)}

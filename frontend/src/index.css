@@ -1169,7 +1169,7 @@
   background: transparent;
 }
 
-/* OpenScript editor syntax colours.
+/* Pine Script editor syntax colours.
  *
  * Their own small palette rather than the app's accent, because the accent is
  * the operator's choice from six hues and a keyword painted in it would vanish

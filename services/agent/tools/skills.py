@@ -41,7 +41,7 @@ logger = get_logger(__name__)
 #: Most characters one skill result may carry. Larger than the base class's
 #: ``MAX_JSON_CHARS`` on purpose: that cap protects the context from market data
 #: a tool cannot bound, while a skill page is the owner's own document that the
-#: model reads in full either way. At the shared cap, writing one OpenScript
+#: model reads in full either way. At the shared cap, writing one Pine Script
 #: study took eighteen calls of paging, close to the run's tool-call limit; the
 #: text read is the same at any page size, only the number of calls changes.
 SKILL_RESULT_CHARS = 32_000
@@ -85,7 +85,7 @@ class SkillsToolkit(OpenAlgoToolkit):
 
         Args:
             skill_name: A skill name exactly as the SKILLS section lists it, for
-                example ``openscript`` or ``flow-builder``.
+                example ``pinescript`` or ``flow-builder``.
             offset: Character offset to read from. 0 for the first page, then
                 the next_offset the previous page returned.
 
@@ -115,7 +115,7 @@ class SkillsToolkit(OpenAlgoToolkit):
 
         Args:
             skill_name: A skill name exactly as the SKILLS section lists it, for
-                example ``openscript``.
+                example ``pinescript``.
             reference_path: The page's path inside the skill folder, for
                 example ``reference/library.md``. A bare file name such as
                 ``library.md`` works when only one page has that name.

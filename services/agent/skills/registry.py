@@ -81,8 +81,8 @@ class SkillSpec:
 #: Every skill the agent may read. Order is the order the prompt lists them in.
 SKILLS: tuple[SkillSpec, ...] = (
     SkillSpec(
-        name="openscript",
-        folder=".claude/skills/openscript",
+        name="pinescript",
+        folder=".claude/skills/pinescript",
         # Chat and the chart panel: a study is written beside the chart it
         # plots on as often as on the conversation page.
         surfaces=frozenset({SURFACE_CHAT, SURFACE_CHART}),
@@ -90,8 +90,8 @@ SKILLS: tuple[SkillSpec, ...] = (
             "You cannot run validate.mjs, the importer or any node command, and nothing "
             "compiles here. Check every name against reference/library.md (a planned name "
             "fails with OS2020) and reference/pitfalls.md, show the operator the full "
-            "source, then save it with save_openscript. It is stored as source only: the "
-            "trader opens it in the OpenScript editor on /trading, where it compiles, and "
+            "source, then save it with save_pinescript. It is stored as source only: the "
+            "trader opens it in the Pine Script editor on /trading, where it compiles, and "
             "saving it there stores the compiled program a strategy needs to run."
         ),
         # The worked examples are the files that are known to compile, and the

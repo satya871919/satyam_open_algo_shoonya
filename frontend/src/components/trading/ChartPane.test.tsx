@@ -520,7 +520,7 @@ describe('the indicator catalogue', () => {
    * was built on the first picker open of a page's life and never again. That
    * quietly defeated the whole tier beneath it: `indicatorCatalog` calls
    * `loadIndicators`, which re-reads `strategies/indicators/` and
-   * `strategies/openscript/` precisely so a script saved from the panel appears
+   * `strategies/pinescript/` precisely so a script saved from the panel appears
    * on the next picker open rather than after a reload, and both loaders are
    * keyed on modification time to make the repeat call cheap. None of it ran
    * twice.
@@ -546,7 +546,7 @@ describe('the indicator catalogue', () => {
     // The trader saves a script somewhere else and comes back.
     fake.catalogue = [
       ...fake.catalogue,
-      { id: 'openscript:mine.oscript', name: 'My new study', category: 'OpenScript' },
+      { id: 'pinescript:mine.oscript', name: 'My new study', category: 'Pine Script' },
     ]
     fireEvent.keyDown(document, { key: 'Escape' })
     await act(async () => {})

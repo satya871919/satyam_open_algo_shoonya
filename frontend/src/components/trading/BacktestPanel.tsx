@@ -45,7 +45,7 @@ import {
   listScripts,
   readScript,
   type StoredScript,
-} from '@/lib/trading/openscriptFiles'
+} from '@/lib/trading/pinescriptFiles'
 import { BacktestResultTabs } from './BacktestResultTabs'
 import { StrategyInputs } from './StrategyInputs'
 import { PANEL_HEADER, PanelShell } from './panelShell'

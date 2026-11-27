@@ -267,7 +267,7 @@ def begin_early_shutdown() -> bool:
     window for everything: open requests first, then ``worker_exit``, which is
     where shutdown_runtime ran the early hooks one after another. A slow
     request, or one strategy using its grace period, could leave the
-    OpenScript runs no time at all, and the kill that ends the window skipped
+    PineScript runs no time at all, and the kill that ends the window skipped
     them. Started here they stop beside the open requests and beside each
     other, and shutdown_runtime only waits for them.
 
@@ -483,7 +483,10 @@ def close_socketio_sessions() -> int | None:
     try:
         from extensions import socketio
 
-        eio = socketio.server.eio
+        server = getattr(socketio, "server", None)
+        eio = getattr(server, "eio", None) if server is not None else None
+        if eio is None:
+            return None
         sessions = []
         for _attempt in range(3):
             try:

@@ -48,7 +48,7 @@ function chart(overrides: Partial<AlertChart> = {}): AlertChart {
       {
         id: 'i1',
         name: 'Supertrend',
-        indicatorId: 'openscript:supertrend',
+        indicatorId: 'pinescript:supertrend',
         paneIndex: 0,
         values: () => ({ band: [10, 11, 12], dir: [-1, -1, 1] }),
         series: (key: string) => (key === 'band' || key === 'dir' ? {} : undefined),

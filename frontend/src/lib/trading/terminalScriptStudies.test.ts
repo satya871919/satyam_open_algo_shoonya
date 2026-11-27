@@ -17,7 +17,7 @@ import {
 } from 'openalgo-charts'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { clearInstrumentFacts } from './instrumentFacts'
-import { forgetOpenScriptStudies } from './openscriptStudies'
+import { forgetPineScriptStudies } from './pinescriptStudies'
 import { type SymbolView, TradingTerminal } from './terminal'
 
 type State = {
@@ -79,7 +79,7 @@ beforeEach(() => {
   // Inside the newest bar of every test, so it is still forming.
   vi.setSystemTime((T0 + 3 * 60 + 10) * 1000)
   localStorage.clear()
-  forgetOpenScriptStudies()
+  forgetPineScriptStudies()
   clearInstrumentFacts()
   scripts = {}
   factsGate = Promise.resolve()
@@ -98,19 +98,19 @@ beforeEach(() => {
     'fetch',
     vi.fn(async (url: string): Promise<Served> => {
       const u = new URL(String(url), 'http://host.invalid')
-      if (u.pathname === '/openscript/index.json') {
+      if (u.pathname === '/pinescript/index.json') {
         return {
           ok: true,
           json: async () =>
             Object.entries(scripts).map(([file, one]) => ({ file, mtime: one.mtime, bytes: 1 })),
         }
       }
-      if (u.pathname === '/openscript/instrument') {
+      if (u.pathname === '/pinescript/instrument') {
         await factsGate
         return { ok: true, json: async () => factsReply(65) }
       }
-      if (u.pathname.startsWith('/openscript/')) {
-        const file = decodeURIComponent(u.pathname.replace('/openscript/', ''))
+      if (u.pathname.startsWith('/pinescript/')) {
+        const file = decodeURIComponent(u.pathname.replace('/pinescript/', ''))
         return { ok: true, text: async () => scripts[file]?.source ?? '' }
       }
       // The custom indicator folder, the alert log and anything else: absent.
@@ -182,12 +182,12 @@ describe('applying a script', () => {
   it('applies a script already on the chart again instead of adding a second copy', async () => {
     const { terminal, state } = await mount()
     save('probe.oscript', studyOf('1'))
-    await terminal.addIndicatorById('openscript:probe')
+    await terminal.addIndicatorById('pinescript:probe')
     const first = state.chart.indicators()
     expect(first).toHaveLength(1)
     const id = first[0].id
 
-    await terminal.addIndicatorById('openscript:probe')
+    await terminal.addIndicatorById('pinescript:probe')
     expect(state.chart.indicators().map((one) => one.id)).toEqual([id])
 
     // Only a script. A built-in added twice from the picker is two studies on
@@ -195,7 +195,7 @@ describe('applying a script', () => {
     await terminal.addIndicatorById('ema')
     await terminal.addIndicatorById('ema')
     expect(state.chart.indicators().map((one) => one.indicatorId)).toEqual([
-      'openscript:probe',
+      'pinescript:probe',
       'ema',
       'ema',
     ])
@@ -207,20 +207,20 @@ describe('applying a script', () => {
     // bound to it.
     const { terminal, state, onToast } = await mount()
     save('probe.oscript', studyOf('1'))
-    await terminal.addIndicatorById('openscript:probe')
+    await terminal.addIndicatorById('pinescript:probe')
     const id = state.chart.indicators()[0].id
 
     // Compiles, and stops on the first bar: a history index is never negative.
     // Rebuilding the chart's studies with it would stop part way and lose the
     // ones after it, so it is tried first and the working copy stays.
     save('probe.oscript', studyOf('close[close * 0 - 1]'))
-    await terminal.addIndicatorById('openscript:probe')
+    await terminal.addIndicatorById('pinescript:probe')
     expect(state.chart.indicators()).toHaveLength(1)
     expect(state.chart.indicators()[0].values().p0).toEqual([1, 1, 1, 1])
     expect(onToast).toHaveBeenCalledWith(expect.stringMatching(/OS4001/), 'err')
 
     save('probe.oscript', studyOf('2'))
-    await terminal.addIndicatorById('openscript:probe')
+    await terminal.addIndicatorById('pinescript:probe')
     const [study] = state.chart.indicators()
     expect(state.chart.indicators()).toHaveLength(1)
     expect(study.id).toBe(id)
@@ -246,7 +246,7 @@ mult = input(2.0, "Width", min = 0.5, group = "Bands",
 plot(close * mult, "Upper")
 `
     )
-    await terminal.addIndicatorById('openscript:bands')
+    await terminal.addIndicatorById('pinescript:bands')
     terminal.openIndicatorSettings(state.chart.indicators()[0].id)
     await vi.waitFor(() => expect(onIndicatorSettings).toHaveBeenCalled())
 
@@ -276,7 +276,7 @@ if close > 100
     alert("Above " + text(close, 2), id = "above")
 `
     )
-    await terminal.addIndicatorById('openscript:probe')
+    await terminal.addIndicatorById('pinescript:probe')
     onToast.mockClear()
     const last = T0 + 3 * 60
 
@@ -336,7 +336,7 @@ describe('the note about a study with nothing to plot', () => {
     const { terminal, state, onToast } = await mount()
     save('lot.oscript', studyOf('chart.lotSize'))
 
-    const adding = terminal.addIndicatorById('openscript:lot')
+    const adding = terminal.addIndicatorById('pinescript:lot')
     await vi.waitFor(() => expect(state.chart.indicators()).toHaveLength(1))
     expect(onToast.mock.calls.filter(([, kind]) => kind === '')).toEqual([])
 

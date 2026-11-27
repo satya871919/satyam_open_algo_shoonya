@@ -18,7 +18,7 @@
  * is exactly the row a trader most needs a Stop button for.
  */
 
-import type { RunningStrategy, RunSettings } from '@/api/openscriptRunner'
+import type { RunningStrategy, RunSettings } from '@/api/pinescriptRunner'
 
 /** A strategy deployed on one instrument at one interval: what a row is. */
 export interface Deployment {

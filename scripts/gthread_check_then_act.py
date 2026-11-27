@@ -63,7 +63,7 @@ DEFAULT_ROOTS = (
     "events",
     "portfolio",
     "sip",
-    "openscript_host",
+    "pinescript_host",
     "mcp",
     "upgrade",
     "broker/*/api",

@@ -1,7 +1,7 @@
 """One lock per key, with a registry that only holds the keys in use.
 
 Serialising work per key (one smart order per symbol, one sandbox fill per
-position, one save per OpenScript file) needs a lock per key. The hand-rolled
+position, one save per PineScript file) needs a lock per key. The hand-rolled
 version is a module dict that gains an entry for every key ever seen and never
 loses one, which in a worker that runs for weeks is a leak with the size of the
 instrument universe.

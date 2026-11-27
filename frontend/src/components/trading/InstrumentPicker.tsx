@@ -21,7 +21,7 @@
 
 import { useQuery } from '@tanstack/react-query'
 import { useEffect, useRef, useState } from 'react'
-import { instrumentsOn, intervalsAvailable } from '@/api/openscriptRunner'
+import { instrumentsOn, intervalsAvailable } from '@/api/pinescriptRunner'
 import { useSupportedExchanges } from '@/hooks/useSupportedExchanges'
 import { DERIVATIVE_EXCHANGES } from '@/lib/flow/constants'
 import { cn } from '@/lib/utils'
@@ -80,14 +80,14 @@ export function InstrumentPicker({ symbol, exchange, interval, product, onChange
   // Two characters minimum: one matches most of an exchange, which is a list
   // nobody can read and a request nobody benefits from.
   const { data: found = [], isFetching } = useQuery({
-    queryKey: ['openscript', 'instruments', exchange, query],
+    queryKey: ['pinescript', 'instruments', exchange, query],
     queryFn: () => instrumentsOn(query.trim(), exchange),
     enabled: open && query.trim().length >= 2,
     staleTime: 60_000,
   })
 
   const { data: bars = [] } = useQuery({
-    queryKey: ['openscript', 'intervals'],
+    queryKey: ['pinescript', 'intervals'],
     queryFn: () => intervalsAvailable(),
     // The broker's answer changes when the broker does, which is a login and
     // not a minute, so this is asked once and kept.

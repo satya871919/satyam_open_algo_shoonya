@@ -252,7 +252,7 @@ IS_MAC = OS_TYPE == "darwin"
 IS_LINUX = OS_TYPE == "linux"
 
 
-#: Job defaults for the strategy host's scheduler, which the OpenScript runner
+#: Job defaults for the strategy host's scheduler, which the Pine Script runner
 #: shares. APScheduler's own misfire grace is one second: a job that reaches an
 #: executor thread later than that is skipped with only a "was missed" warning.
 #: The pool has ten threads and a start holds PROCESS_LOCK across its database
@@ -3531,7 +3531,7 @@ def cleanup_on_exit():
 #: How long begin_shutdown gives the running strategies to stop, together,
 #: before it kills what is left. A stop is a terminate, five seconds of grace
 #: and a kill, so this covers one full stop with room to spare, and it leaves
-#: the OpenScript runs their share of the shutdown budget in utils.shutdown.
+#: the Pine Script runs their share of the shutdown budget in utils.shutdown.
 _SHUTDOWN_STOP_BUDGET_SECONDS = 9.0
 
 

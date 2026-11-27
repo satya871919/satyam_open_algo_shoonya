@@ -10,12 +10,12 @@
  */
 
 import { describe, expect, it } from 'vitest'
-import type { RunningStrategy, RunSettings } from '@/api/openscriptRunner'
+import type { RunningStrategy, RunSettings } from '@/api/pinescriptRunner'
 import { deploymentsOf, matches } from './deployments'
 
 function saved(over: Partial<RunSettings> & { deployment?: string }): RunSettings {
   return {
-    deployment: 'openscript_turn_SYM1_EXCH1_1m',
+    deployment: 'pinescript_turn_SYM1_EXCH1_1m',
     file: 'turn.oscript',
     symbol: 'SYM1',
     exchange: 'EXCH1',
@@ -26,7 +26,7 @@ function saved(over: Partial<RunSettings> & { deployment?: string }): RunSetting
 }
 
 function up(over: Partial<RunningStrategy> & { deployment?: string }): RunningStrategy {
-  const id = over.deployment ?? 'openscript_turn_SYM1_EXCH1_1m'
+  const id = over.deployment ?? 'pinescript_turn_SYM1_EXCH1_1m'
   return {
     id,
     deployment: id,
@@ -48,7 +48,7 @@ describe('what the panel lists', () => {
     // THE ONE THIS FILE EXISTS FOR. Keyed by the file, these collapse into one
     // row and a trader who deployed two strategies is shown one.
     const rows = deploymentsOf(
-      [saved({}), saved({ deployment: 'openscript_turn_SYM2_EXCH1_1m', symbol: 'SYM2' })],
+      [saved({}), saved({ deployment: 'pinescript_turn_SYM2_EXCH1_1m', symbol: 'SYM2' })],
       []
     )
 
@@ -59,8 +59,8 @@ describe('what the panel lists', () => {
   it('shows one strategy on one instrument at two intervals as two rows', () => {
     const rows = deploymentsOf(
       [
-        saved({ deployment: 'openscript_turn_SYM1_EXCH1_5m', interval: '5m' }),
-        saved({ deployment: 'openscript_turn_SYM1_EXCH1_1h', interval: '1h' }),
+        saved({ deployment: 'pinescript_turn_SYM1_EXCH1_5m', interval: '5m' }),
+        saved({ deployment: 'pinescript_turn_SYM1_EXCH1_1h', interval: '1h' }),
       ],
       []
     )
@@ -72,8 +72,8 @@ describe('what the panel lists', () => {
     // Catches a run matched by file. The wrong row would show running, with a
     // Stop button that stopped a position on another instrument.
     const rows = deploymentsOf(
-      [saved({}), saved({ deployment: 'openscript_turn_SYM2_EXCH1_1m', symbol: 'SYM2' })],
-      [up({ deployment: 'openscript_turn_SYM2_EXCH1_1m', symbol: 'SYM2' })]
+      [saved({}), saved({ deployment: 'pinescript_turn_SYM2_EXCH1_1m', symbol: 'SYM2' })],
+      [up({ deployment: 'pinescript_turn_SYM2_EXCH1_1m', symbol: 'SYM2' })]
     )
 
     const [first, second] = rows
@@ -97,10 +97,10 @@ describe('what the panel lists', () => {
   it('lists what is running before what is not', () => {
     const rows = deploymentsOf(
       [
-        saved({ deployment: 'openscript_a_SYM1_EXCH1_1m', file: 'a.oscript' }),
-        saved({ deployment: 'openscript_z_SYM1_EXCH1_1m', file: 'z.oscript' }),
+        saved({ deployment: 'pinescript_a_SYM1_EXCH1_1m', file: 'a.oscript' }),
+        saved({ deployment: 'pinescript_z_SYM1_EXCH1_1m', file: 'z.oscript' }),
       ],
-      [up({ deployment: 'openscript_z_SYM1_EXCH1_1m', file: 'z.oscript' })]
+      [up({ deployment: 'pinescript_z_SYM1_EXCH1_1m', file: 'z.oscript' })]
     )
 
     expect(rows.map((one) => one.file)).toEqual(['z.oscript', 'a.oscript'])
@@ -109,9 +109,9 @@ describe('what the panel lists', () => {
   it('keeps two deployments of one strategy together', () => {
     const rows = deploymentsOf(
       [
-        saved({ deployment: 'openscript_b_SYM2_EXCH1_1m', file: 'b.oscript', symbol: 'SYM2' }),
-        saved({ deployment: 'openscript_a_SYM1_EXCH1_1m', file: 'a.oscript' }),
-        saved({ deployment: 'openscript_b_SYM1_EXCH1_1m', file: 'b.oscript' }),
+        saved({ deployment: 'pinescript_b_SYM2_EXCH1_1m', file: 'b.oscript', symbol: 'SYM2' }),
+        saved({ deployment: 'pinescript_a_SYM1_EXCH1_1m', file: 'a.oscript' }),
+        saved({ deployment: 'pinescript_b_SYM1_EXCH1_1m', file: 'b.oscript' }),
       ],
       []
     )

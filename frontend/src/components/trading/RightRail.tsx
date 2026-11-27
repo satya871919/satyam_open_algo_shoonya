@@ -65,9 +65,9 @@ const PANELS = [
   },
   {
     id: 'scripts',
-    label: 'Scripts',
+    label: 'Pine Script',
     icon: FileCode2,
-    hint: 'Write and edit OpenScript studies and strategies',
+    hint: 'Write and edit Pine Script studies and strategies',
   },
   // Beside the editor, because writing a strategy and asking what it would
   // have done are one activity seen twice, and a trader moves between the two

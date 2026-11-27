@@ -1,5 +1,10 @@
 /**
- * The OpenScript panel: write a study, save it, put it on the chart.
+ * The Pine Script panel: write a study or strategy in Pine Script, save it,
+ * put it on the chart.
+ *
+ * Pine Script (TradingView compatible) is the primary scripting syntax. Scripts
+ * are auto-converted to the internal representation on save, so the trader
+ * writes Pine and the engine runs the compiled result.
  *
  * Sits in the right rail beside the watchlist and the objects panel and wears
  * the same clothes: `PanelShell` owns the width and the drag handle,
@@ -31,7 +36,7 @@
  * own words underneath.
  *
  * **An edit is never lost to a switch or a closed panel.** Unsaved text is kept
- * per script (`openscriptDrafts.ts`) and comes back when that script is opened
+ * per script (`pinescriptDrafts.ts`) and comes back when that script is opened
  * again, so moving between scripts or glancing at another panel costs nothing.
  * Throwing an edit away is its own action, and it asks first.
  *
@@ -71,7 +76,7 @@ import {
   hasDraft,
   keepDraft,
   readDraft,
-} from '@/lib/trading/openscriptDrafts'
+} from '@/lib/trading/pinescriptDrafts'
 import {
   type CompileResult,
   compileSource,
@@ -86,16 +91,16 @@ import {
   type StoredScript,
   saveScript,
   starterFor,
-} from '@/lib/trading/openscriptFiles'
-import { type HighlightedSpan, highlight, SPAN_CLASS } from '@/lib/trading/openscriptHighlight'
-import { type IndentEdit, indentEdit, outdentEdit } from '@/lib/trading/openscriptIndent'
+} from '@/lib/trading/pinescriptFiles'
+import { type HighlightedSpan, highlight, SPAN_CLASS } from '@/lib/trading/pinescriptHighlight'
+import { type IndentEdit, indentEdit, outdentEdit } from '@/lib/trading/pinescriptIndent'
 import {
   forgetScript,
   noteOpened,
   readLastOpened,
   readRecents,
   writeLastOpened,
-} from '@/lib/trading/openscriptSession'
+} from '@/lib/trading/pinescriptSession'
 import { cn } from '@/lib/utils'
 import { PANEL_HEADER, PanelShell } from './panelShell'
 
@@ -164,9 +169,9 @@ function stemOf(file: string): string {
  * panel's, which trades in sandbox or live as the platform is set.
  */
 export const KIND_HINT: Readonly<Record<ScriptKind, string>> = {
-  study: 'Computes and draws on the chart. It places no orders.',
+  study: 'Computes and draws on the chart in Pine Script. It places no orders.',
   strategy:
-    'Draws like a study and also places orders. Backtest it on the chart, then run it from the Strategies panel.',
+    'Draws like a study and also places orders in Pine Script. Backtest it on the chart, then run it from the Strategies panel.',
 }
 
 /** Where the caret is, counted the way the diagnostics count: from one. */
@@ -539,7 +544,10 @@ export function ScriptPanel({ onAddToChart, onBacktest, openFile = null, onOpene
       // written whatever it says so a half finished thought is never lost.
       const compiled = await compileSource(open, source)
       setResult(compiled)
-      await saveScript(open, source)
+      if (compiled.diagnostics.length > 0 || compiled.problem) {
+        setConsoleOpen(true)
+      }
+      await saveScript(open, source, compiled)
       setSaved(source)
       setMovedUnder(false)
       await refresh()
@@ -582,12 +590,14 @@ export function ScriptPanel({ onAddToChart, onBacktest, openFile = null, onOpene
   const create = useCallback(async () => {
     if (nameProblem(newName) !== null) return
     const file = fileNameFor(newName)
+    const kindChoice = newKind
     setNaming(false)
     setNewName('')
     setBusy(true)
     try {
-      const starter = starterFor(newName, newKind)
-      await saveScript(file, starter)
+      const starter = starterFor(newName, kindChoice, 'pine')
+      const initialResult = await compileSource(file, starter)
+      await saveScript(file, starter, initialResult)
       // A draft left under this name by a script deleted from another tab is
       // not about this one, and must not be restored over its starter later.
       dropDraft(file)
@@ -597,7 +607,7 @@ export function ScriptPanel({ onAddToChart, onBacktest, openFile = null, onOpene
       setSource(starter)
       setSaved(starter)
       setRecents(noteOpened(file))
-      setResult(await compileSource(file, starter))
+      setResult(initialResult)
       await refresh()
     } catch (error) {
       setResult({
@@ -775,7 +785,7 @@ export function ScriptPanel({ onAddToChart, onBacktest, openFile = null, onOpene
   return (
     <PanelShell
       id="trading-scripts-panel"
-      label="Scripts"
+      label="Pine Script"
       storageKey="trading.panel.scripts.width"
       defaultWidth={480}
       minWidth={320}

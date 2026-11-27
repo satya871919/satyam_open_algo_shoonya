@@ -546,15 +546,15 @@ TOOLKITS: list[ToolkitSpec] = [
         description="Read a skill's authoring instructions and reference pages, live from disk.",
     ),
     ToolkitSpec(
-        key="openscript_gen",
-        module="services.agent.tools.openscript_gen",
-        attr="OpenScriptToolkit",
+        key="pinescript_gen",
+        module="services.agent.tools.pinescript_gen",
+        attr="PineScriptToolkit",
         # The chart panel too, unlike the other writers: a study is written
         # beside the chart it plots on, and /trading is where it compiles.
         surfaces=frozenset({SURFACE_CHAT, SURFACE_CHART}),
         order=65,
         description=(
-            "Save an OpenScript source to strategies/openscript/ for the /trading editor to "
+            "Save a Pine Script source to strategies/pinescript/ for the /trading editor to "
             "compile. Never compiles or runs it."
         ),
     ),

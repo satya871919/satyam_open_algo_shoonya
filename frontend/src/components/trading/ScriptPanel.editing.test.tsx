@@ -10,16 +10,16 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { forgetDraftsInPage } from '@/lib/trading/openscriptDrafts'
-import { starterFor } from '@/lib/trading/openscriptFiles'
+import { forgetDraftsInPage } from '@/lib/trading/pinescriptDrafts'
+import { starterFor } from '@/lib/trading/pinescriptFiles'
 import { act, render, screen, userEvent, waitFor } from '@/test/test-utils'
 import { KIND_HINT, ScriptPanel } from './ScriptPanel'
 
 /** The server's copy of every script, which the faked routes read and write. */
 const server = vi.hoisted(() => ({ files: new Map<string, string>() }))
 
-vi.mock('@/lib/trading/openscriptFiles', async (importOriginal) => {
-  const real = await importOriginal<typeof import('@/lib/trading/openscriptFiles')>()
+vi.mock('@/lib/trading/pinescriptFiles', async (importOriginal) => {
+  const real = await importOriginal<typeof import('@/lib/trading/pinescriptFiles')>()
   return {
     ...real,
     listScripts: vi.fn(async () =>
@@ -89,7 +89,7 @@ describe('Tab in the editor', () => {
     const user = userEvent.setup()
     render(panel())
     const area = await editorFor(A)
-    const line = SOURCE_A.indexOf('fast = ema')
+    const line = SOURCE_A.indexOf('fast = ta.ema')
     area.focus()
     area.setSelectionRange(line, line)
 
@@ -107,14 +107,14 @@ describe('Tab in the editor', () => {
     const user = userEvent.setup()
     render(panel())
     const area = await editorFor(A)
-    const body = SOURCE_A.indexOf('    buy(qty')
+    const body = SOURCE_A.indexOf('    strategy.entry')
     area.focus()
     area.setSelectionRange(body + 6, body + 6)
 
     await user.keyboard('{Shift>}{Tab}{/Shift}')
 
     expect(document.activeElement).toBe(area)
-    expect(area.value).toBe(SOURCE_A.replace('    buy(qty', 'buy(qty'))
+    expect(area.value).toBe(SOURCE_A.replace('    strategy.entry', 'strategy.entry'))
     await waitFor(() => expect(overlayOf(area)).toBe(area.value))
   })
 
@@ -143,7 +143,7 @@ describe('Tab in the editor', () => {
     await user.keyboard('{Escape}{ArrowRight}{Tab}')
 
     expect(document.activeElement).toBe(area)
-    expect(area.value.startsWith('v   ersion')).toBe(true)
+    expect(area.value.startsWith('/   /')).toBe(true)
   })
 })
 
@@ -227,5 +227,48 @@ describe('an unsaved edit', () => {
     render(panel(A))
     expect(await screen.findByText(/the saved copy of alpha has changed since/)).toBeInTheDocument()
     expect((await editorFor(A)).value).toContain('// mine')
+  })
+})
+
+describe('Pine Script support in the editor', () => {
+  it('creates new scripts in Pine Script v6 without an PineScript toggle and keeps Pine Script on Save', async () => {
+    server.files.clear()
+    const user = userEvent.setup()
+    render(panel(null))
+
+    await user.click(await screen.findByRole('button', { name: 'New script' }))
+    expect(screen.queryByRole('button', { name: 'PineScript' })).toBeNull()
+
+    await user.type(screen.getByLabelText('Name'), 'pine-trend')
+    await user.click(screen.getByRole('button', { name: 'Create' }))
+
+    const area = await editorFor('pine-trend.oscript')
+    expect(area.value).toContain('//@version=6')
+    expect(area.value).toContain('indicator("Pine trend"')
+    expect(server.files.get('pine-trend.oscript')).toContain('//@version=6')
+    expect(screen.queryByRole('button', { name: 'Convert Pine' })).toBeNull()
+  })
+
+  it('compiles and saves pasted Pine Script directly while keeping Pine Script source', async () => {
+    const user = userEvent.setup()
+    render(panel(A))
+    const area = await editorFor(A)
+
+    const pine = [
+      '//@version=6',
+      'indicator("My Pine EMA", overlay=true)',
+      'plot(ta.ema(close, 14), "EMA", color.aqua)',
+      '',
+    ].join('\n')
+
+    await user.click(area)
+    await user.clear(area)
+    await user.paste(pine)
+
+    await user.click(screen.getByRole('button', { name: 'Save' }))
+
+    await waitFor(() => expect(server.files.get(A)).toContain('indicator("My Pine EMA"'))
+    expect(area.value).toContain('//@version=6')
+    expect(await screen.findByText(/Ready/)).toBeInTheDocument()
   })
 })

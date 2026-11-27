@@ -58,7 +58,7 @@ REQUEST_ROOTS = (
     "events",
     "portfolio",
     "sip",
-    "openscript_host",
+    "pinescript_host",
     "mcp",
     "broker/*/api",
 )

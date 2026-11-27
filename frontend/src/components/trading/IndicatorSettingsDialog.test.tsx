@@ -1,6 +1,6 @@
 /**
  * The study settings dialog: what a script declares about its inputs, and what
- * an OpenScript interval input may be set to.
+ * an Pine Script interval input may be set to.
  *
  * A script declares a group and a line of help for an input (`stdlib.md`
  * 13.2), and the dialog used to draw neither. An interval input was offered
@@ -55,7 +55,7 @@ function optionsOf(select: HTMLElement): { label: string; value: string }[] {
 
 describe('what a script says about its inputs', () => {
   const GROUPED = request(
-    'openscript:bands-1',
+    'pinescript:bands-1',
     [
       { key: 'length', type: 'number', label: 'Length', group: 'Average' },
       {
@@ -96,7 +96,7 @@ describe('what a script says about its inputs', () => {
   })
 })
 
-describe('an OpenScript interval input', () => {
+describe('an Pine Script interval input', () => {
   const FIELD: IndicatorField = {
     key: 'tf',
     type: 'interval',
@@ -105,7 +105,7 @@ describe('an OpenScript interval input', () => {
   }
 
   it('offers only timeframes the language reads, with the chart entry spelled out', () => {
-    mount(request('openscript:higher-1', [FIELD], { tf: '1h' }), '5m')
+    mount(request('pinescript:higher-1', [FIELD], { tf: '1h' }), '5m')
     const options = optionsOf(screen.getByLabelText('Higher timeframe'))
     expect(options).toEqual([
       { label: 'Chart interval (5m)', value: '5m' },
@@ -124,28 +124,28 @@ describe('an OpenScript interval input', () => {
 
   it('stores the chart interval, not an empty value, when that is the choice', async () => {
     const user = userEvent.setup()
-    const { onApply } = mount(request('openscript:higher-1', [FIELD], { tf: '1h' }), '5m')
+    const { onApply } = mount(request('pinescript:higher-1', [FIELD], { tf: '1h' }), '5m')
     await user.selectOptions(screen.getByLabelText('Higher timeframe'), 'Chart interval (5m)')
     await user.click(screen.getByRole('button', { name: 'Ok' }))
-    expect(onApply).toHaveBeenCalledWith('openscript:higher-1', { tf: '5m' })
+    expect(onApply).toHaveBeenCalledWith('pinescript:higher-1', { tf: '5m' })
   })
 
   it('stores a day as the language spells it', async () => {
     const user = userEvent.setup()
-    const { onApply } = mount(request('openscript:higher-1', [FIELD], { tf: '1h' }), '5m')
+    const { onApply } = mount(request('pinescript:higher-1', [FIELD], { tf: '1h' }), '5m')
     await user.selectOptions(screen.getByLabelText('Higher timeframe'), 'D')
     await user.click(screen.getByRole('button', { name: 'Ok' }))
-    expect(onApply).toHaveBeenCalledWith('openscript:higher-1', { tf: '1D' })
+    expect(onApply).toHaveBeenCalledWith('pinescript:higher-1', { tf: '1D' })
   })
 
   it('puts right a study left holding a value the language refused', async () => {
     // An empty value is what "Chart interval" used to store. The study is not
     // drawing, and opening the dialog and pressing Ok is what fixes it.
     const user = userEvent.setup()
-    const { onApply } = mount(request('openscript:higher-1', [FIELD], { tf: '' }), '5m')
+    const { onApply } = mount(request('pinescript:higher-1', [FIELD], { tf: '' }), '5m')
     expect((screen.getByLabelText('Higher timeframe') as HTMLSelectElement).value).toBe('5m')
     await user.click(screen.getByRole('button', { name: 'Ok' }))
-    expect(onApply).toHaveBeenCalledWith('openscript:higher-1', { tf: '5m' })
+    expect(onApply).toHaveBeenCalledWith('pinescript:higher-1', { tf: '5m' })
   })
 })
 

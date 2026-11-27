@@ -99,6 +99,120 @@ def import_broker_module(broker_name: str) -> Any | None:
         return None
 
 
+_INDEX_EXCHANGES = frozenset({"NSE_INDEX", "BSE_INDEX", "MCX_INDEX", "GLOBAL_INDEX"})
+
+
+def _synthetic_activity_volume(df: pd.DataFrame) -> pd.Series:
+    """Compute price-range activity volume for indices lacking futures/exchange volume."""
+    high = pd.to_numeric(df.get("high", 0), errors="coerce").fillna(0.0)
+    low = pd.to_numeric(df.get("low", 0), errors="coerce").fillna(0.0)
+    open_ = pd.to_numeric(df.get("open", 0), errors="coerce").fillna(0.0)
+    close = pd.to_numeric(df.get("close", 0), errors="coerce").fillna(0.0)
+    activity = ((high - low).abs() + (close - open_).abs()) * 1000.0
+    return activity.round().clip(lower=100).astype(int)
+
+
+def _attach_index_proxy_volume(
+    df: pd.DataFrame,
+    data_handler: Any,
+    symbol: str,
+    exchange: str,
+    interval: str,
+    start_date: Any,
+    end_date: Any,
+) -> pd.DataFrame:
+    """Populate index bar volume across all index exchanges (NSE_INDEX, BSE_INDEX, MCX_INDEX, GLOBAL_INDEX).
+
+    1. For NSE_INDEX / BSE_INDEX symbols with active futures (NIFTY, BANKNIFTY,
+       FINNIFTY, MIDCPNIFTY, SENSEX, BANKEX, etc.), aligns real front-month
+       futures volume by timestamp when a broker data_handler is available.
+    2. For any remaining zero/missing bars (or indices without futures such as
+       sectoral indices, INDIAVIX, MCX_INDEX, GLOBAL_INDEX, or DB-only reads),
+       falls back to price-range activity volume so every index has non-zero volume.
+    """
+    exch_upper = exchange.upper()
+    if exch_upper not in _INDEX_EXCHANGES or df.empty:
+        return df
+
+    existing_vol = (
+        pd.to_numeric(df["volume"], errors="coerce").fillna(0)
+        if "volume" in df.columns
+        else pd.Series(0, index=df.index, dtype="int64")
+    )
+    if (existing_vol > 0).all():
+        return df
+
+    df = df.copy()
+    df["volume"] = existing_vol.astype(int)
+
+    # 1. Try real front-month futures volume for NSE_INDEX / BSE_INDEX
+    if data_handler is not None and exch_upper in ("NSE_INDEX", "BSE_INDEX"):
+        fut_exchange = "NFO" if exch_upper == "NSE_INDEX" else "BFO"
+        try:
+            from datetime import date, datetime
+
+            from database.symbol import fno_search_symbols_db, get_distinct_expiries
+
+            expiries = get_distinct_expiries(
+                exchange=fut_exchange, underlying=symbol, instrumenttype="futures"
+            )
+            if expiries:
+                today = date.today()
+                nearest_expiry = expiries[0]
+                for exp in expiries:
+                    for fmt in ("%d-%b-%y", "%d-%b-%Y"):
+                        try:
+                            if datetime.strptime(exp, fmt).date() >= today:
+                                nearest_expiry = exp
+                                break
+                        except ValueError:
+                            continue
+                    else:
+                        continue
+                    break
+
+                rows = fno_search_symbols_db(
+                    underlying=symbol,
+                    exchange=fut_exchange,
+                    expiry=nearest_expiry,
+                    instrumenttype="FUT",
+                    limit=1,
+                )
+                fut_symbol = (
+                    (rows[0].get("symbol") if isinstance(rows[0], dict) else getattr(rows[0], "symbol", None))
+                    if rows
+                    else None
+                )
+                if fut_symbol:
+                    fut_df = data_handler.get_history(
+                        fut_symbol, fut_exchange, interval, start_date, end_date
+                    )
+                    if (
+                        isinstance(fut_df, pd.DataFrame)
+                        and not fut_df.empty
+                        and "timestamp" in fut_df.columns
+                        and "volume" in fut_df.columns
+                        and "timestamp" in df.columns
+                    ):
+                        vol_map = (
+                            fut_df[["timestamp", "volume"]]
+                            .drop_duplicates(subset=["timestamp"])
+                            .set_index("timestamp")["volume"]
+                        )
+                        mapped = pd.to_numeric(df["timestamp"].map(vol_map), errors="coerce").fillna(0).astype(int)
+                        df["volume"] = df["volume"].where(df["volume"] > 0, mapped)
+        except Exception as exc:
+            logger.debug(f"Index futures proxy volume skipped for {exchange}:{symbol}: {exc}")
+
+    # 2. Universal fallback for any index bars still at 0 (sectoral, VIX, MCX_INDEX, GLOBAL_INDEX)
+    zero_mask = df["volume"] <= 0
+    if zero_mask.any():
+        synth = _synthetic_activity_volume(df)
+        df.loc[zero_mask, "volume"] = synth.loc[zero_mask]
+
+    return df
+
+
 def get_history_with_auth(
     auth_token: str,
     feed_token: str | None,
@@ -155,6 +269,10 @@ def get_history_with_auth(
 
         if not isinstance(df, pd.DataFrame):
             raise ValueError("Invalid data format returned from broker")
+
+        df = _attach_index_proxy_volume(
+            df, data_handler, symbol, exchange, interval, start_date, end_date
+        )
 
         # Ensure all responses include 'oi' field, set to 0 if not present
         if "oi" not in df.columns:
@@ -231,6 +349,8 @@ def get_history_from_db(
         # Ensure 'oi' column exists
         if "oi" not in df.columns:
             df["oi"] = 0
+
+        df = _attach_index_proxy_volume(df, None, symbol, exchange, interval, start_date, end_date)
 
         # Reorder columns to match API response format
         columns = ["timestamp", "open", "high", "low", "close", "volume", "oi"]
